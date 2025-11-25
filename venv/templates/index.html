@@ -1,138 +1,165 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
-    <title>Football App</title>
+    <title>Football App Live</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        #timeline p { margin: 5px 0; }
+        body { font-family: 'Inter', sans-serif; }
+        .animate-ping-slow { animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
     </style>
 </head>
-<body>
-    <h1>Witaj w Football App!</h1>
+<body class="bg-gray-50 text-gray-800">
 
-    <a href="/head-to-head">Head-to-Head Analysis</a>
-    <a href="/head-to-head-extended">Head-to-Head Extended Analysis</a>
-    <!-- Live Score -->
-    <h2>Live Score</h2>
-    <table border="1" id="liveTable">
-        <thead>
-            <tr>
-                <th>Home</th>
-                <th>Away</th>
-                <th>Score</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl mb-4">Football Data Hub</h1>
+            <p class="text-lg text-gray-500">Wyniki na żywo, statystyki i analiza formy w jednym miejscu.</p>
+        </div>
 
-    <!-- Timeline zdarzeń -->
-    <h2>Timeline zdarzeń</h2>
-    <div id="timeline"></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <a href="/standings-page" class="block p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition duration-200 group">
+                <div class="flex items-center mb-2">
+                    <span class="bg-blue-100 text-blue-600 p-2 rounded-lg mr-3 group-hover:bg-blue-600 group-hover:text-white transition">📊</span>
+                    <h3 class="text-lg font-bold text-gray-900">Tabele Ligowe</h3>
+                </div>
+                <p class="text-gray-500 text-sm">Sprawdź aktualne rankingi, awanse i strefy spadkowe.</p>
+            </a>
 
-    <!-- Form Tracker -->
-    <h2>Form Tracker drużyny</h2>
-    <label>Wybierz drużynę: </label>
-    <select id="teamSelect">
-        <option value="">-- Wybierz drużynę --</option>
-        <option value="33">Manchester United</option>
-        <option value="34">Manchester City</option>
-        <option value="40">Liverpool</option>
-        <option value="36">Chelsea</option>
-        <option value="38">Arsenal</option>
-        <option value="541">Real Madrid</option>
-        <option value="529">Barcelona</option>
-    </select>
-    <button onclick="loadForm()">Załaduj formę</button>
+            <a href="/form-tracker-page" class="block p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-green-300 transition duration-200 group">
+                <div class="flex items-center mb-2">
+                    <span class="bg-green-100 text-green-600 p-2 rounded-lg mr-3 group-hover:bg-green-600 group-hover:text-white transition">📈</span>
+                    <h3 class="text-lg font-bold text-gray-900">Tracker Formy</h3>
+                </div>
+                <p class="text-gray-500 text-sm">Wykresy formy, historia meczów i analiza ligowa.</p>
+            </a>
 
-    <canvas id="formChart" width="400" height="200"></canvas>
+            <a href="/head-to-head" class="block p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-purple-300 transition duration-200 group">
+                <div class="flex items-center mb-2">
+                    <span class="bg-purple-100 text-purple-600 p-2 rounded-lg mr-3 group-hover:bg-purple-600 group-hover:text-white transition">🆚</span>
+                    <h3 class="text-lg font-bold text-gray-900">H2H (Porównanie)</h3>
+                </div>
+                <p class="text-gray-500 text-sm">Analiza bezpośrednia, statystyki wygranych i historia spotkań.</p>
+            </a>
+        </div>
 
-    <!-- Załaduj Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <div class="flex items-center">
+                            <span class="relative flex h-3 w-3 mr-2">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                            </span>
+                            <h2 class="text-lg font-bold text-gray-900">Wyniki na żywo</h2>
+                        </div>
+                        <span class="text-xs text-gray-400 font-mono">Auto-refresh</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200" id="liveTable">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gospodarz</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gość</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Wynik</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 bg-white">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 h-full max-h-[600px] flex flex-col">
+                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                        <h2 class="text-lg font-bold text-gray-900">⏱️ Oś czasu</h2>
+                    </div>
+                    <div id="timeline" class="p-6 overflow-y-auto flex-1 space-y-4 text-sm scrollbar-thin scrollbar-thumb-gray-200">
+                        <p class="text-gray-400 text-center italic">Czekam na zdarzenia...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
 
     <script>
-        // --- Live Score ---
         async function fetchLive() {
-            const res = await fetch('/live');
-            const data = await res.json();
-            const tbody = document.querySelector("#liveTable tbody");
-            tbody.innerHTML = "";
-            data.forEach(match => {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${match.home}</td>
-                    <td>${match.away}</td>
-                    <td>${match.score}</td>
-                    <td>${match.status}</td>
-                `;
-                tbody.appendChild(row);
-            });
+            try {
+                const res = await fetch('/live');
+                const data = await res.json();
+                const tbody = document.querySelector("#liveTable tbody");
+                tbody.innerHTML = "";
+                
+                if(data.length === 0) {
+                    tbody.innerHTML = "<tr><td colspan='4' class='px-6 py-8 text-center text-gray-500'>Brak meczów na żywo w tej chwili.</td></tr>";
+                    return;
+                }
+
+                data.forEach(match => {
+                    const row = document.createElement("tr");
+                    let statusColor = match.status.includes("Half") ? "text-orange-500" : "text-green-600";
+                    let minute = match.minute ? `<span class="text-red-500 font-bold ml-1">'${match.minute}</span>` : "";
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${match.home}</td>
+                        <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${match.away}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center font-bold text-lg bg-gray-50">${match.score}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-semibold ${statusColor}">
+                            ${match.status} ${minute}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch(e) { console.error(e); }
         }
 
-        // --- Timeline ---
         async function fetchEvents() {
-            const res = await fetch('/live-events');
-            const data = await res.json();
-            const timeline = document.getElementById("timeline");
-            timeline.innerHTML = "";
+            try {
+                const res = await fetch('/live-events');
+                const data = await res.json();
+                const timeline = document.getElementById("timeline");
+                
+                if (data.length > 0) timeline.innerHTML = ""; 
 
-            data.forEach(event => {
-                const p = document.createElement("p");
-                p.innerHTML = `<strong>${event.time}'</strong> ${event.type} – ${event.player} (${event.team})`;
-                timeline.appendChild(p);
-            });
+                data.forEach(event => {
+                    const div = document.createElement("div");
+                    div.className = "flex items-start space-x-3 pb-3 border-b border-gray-50 last:border-0 animate-fade-in";
+                    
+                    let icon = "⚽";
+                    let colorClass = "text-gray-800";
+                    
+                    if(event.type === "Card") { icon = "🟨"; }
+                    if(event.detail === "Red Card") { icon = "🟥"; }
+                    if(event.type === "subst") { icon = "🔄"; colorClass = "text-gray-500"; }
+
+                    div.innerHTML = `
+                        <div class="font-bold text-blue-600 w-8 text-right shrink-0">${event.time}'</div>
+                        <div class="${colorClass}">
+                            <span class="mr-1">${icon}</span> 
+                            <span class="font-medium">${event.player}</span>
+                            <div class="text-xs text-gray-400 mt-0.5">${event.home} vs ${event.away}</div>
+                        </div>
+                    `;
+                    timeline.prepend(div); 
+                });
+            } catch(e) { console.error(e); }
         }
 
-        // --- Form Tracker ---
-                let formChart = null;
-
-        async function loadForm() {
-    const teamId = document.getElementById("teamSelect").value;
-    if (!teamId) {
-        alert("Wybierz drużynę!");
-        return;
-    }
-
-    const res = await fetch(`/team-form/${teamId}`);
-    const data = await res.json();
-
-    console.log("Received data:", data);
-
-    if (data.length === 0) {
-        alert("Brak danych dla tej drużyny.");
-        return;
-    }
-
-    const labels = data.map(m => m.opponent);
-    const points = data.map(m => m.points);
-
-    const ctx = document.getElementById('formChart').getContext('2d');
-
-    if (formChart) {
-        formChart.destroy();
-    }
-
-    formChart = new Chart(ctx, {
-        type: 'line',
-        data: { 
-            labels: labels,
-            datasets: [{
-                label: 'Punkty',
-                data: points, 
-                borderColor: 'rgba(75, 192, 192, 1)',
-                tension: 0.1
-            }]
-        }
-    });
-}
-
-        // --- Odświeżanie ---
+        // Inicjalizacja
         fetchLive();
         fetchEvents();
-        setInterval(fetchLive, 30000);
-        setInterval(fetchEvents, 30000);
+        setInterval(fetchLive, 10000);
+        setInterval(fetchEvents, 10000);
     </script>
 </body>
 </html>

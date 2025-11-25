@@ -1,163 +1,302 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
-    <title>Head-to-Head Analysis</title>
+    <title>H2H - Bezpośrednie Porównanie</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        select, button { padding: 8px; margin: 5px; }
+        body { font-family: 'Inter', sans-serif; }
+        /* Ukrywanie scrollbara w wynikach wyszukiwania dla estetyki */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body>
-    <h1>Head-to-Head Analysis</h1>
+<body class="bg-gray-50 text-gray-800">
 
-    <a href="/">Wróć do strony głównej</a>
+    <nav class="bg-white border-b border-gray-200 px-4 py-4 mb-8 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center transition">
+                <span class="mr-2">⟵</span> Strona główna
+            </a>
+            <span class="font-bold text-xl text-gray-900">Analiza Head-to-Head</span>
+        </div>
+    </nav>
 
-    <label>Wybierz ligę: </label>
-    <select id="leagueSelect">
-        <option value="">-- Wybierz ligę --</option>
-        <!-- Ligowe opcje zostaną załadowane dynamicznie -->
-    </select>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 pb-12">
+        
+        <div class="grid grid-cols-1 md:grid-cols-7 gap-4 items-center mb-10">
+            
+            <div class="md:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-200 relative group">
+                <h3 class="text-sm font-bold text-gray-400 uppercase mb-2 tracking-wider">Gospodarz (Drużyna A)</h3>
+                
+                <div class="relative">
+                    <input type="text" id="searchA" placeholder="Wpisz nazwę..." onkeyup="handleSearch('A')"
+                           class="w-full border-gray-200 border-b-2 py-2 text-lg font-semibold focus:outline-none focus:border-blue-500 transition-colors bg-transparent">
+                    
+                    <div id="resultsA" class="absolute w-full bg-white border border-gray-100 shadow-xl rounded-b-xl mt-1 max-h-60 overflow-y-auto z-50 hidden no-scrollbar"></div>
+                </div>
 
-    <label>Drużyna A: </label>
-    <select id="teamASelect">
-        <option value="">-- Wybierz drużynę --</option>
-        <!-- Drużynowe opcje zostaną załadowane dynamicznie -->
-    </select>
+                <div id="selectedA" class="mt-4 hidden flex items-center animate-fade-in">
+                    <img id="imgA" src="" class="w-12 h-12 object-contain mr-3">
+                    <span id="nameA" class="text-xl font-bold text-gray-900"></span>
+                </div>
+            </div>
 
-    <label>Drużyna B: </label>
-    <select id="teamBSelect">
-        <option value="">-- Wybierz drużynę --</option>
-        <!-- Drużynowe opcje zostaną załadowane dynamicznie -->
-    </select>
+            <div class="md:col-span-1 flex justify-center">
+                <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 font-black italic">VS</div>
+            </div>
 
-    <button onclick="compareTeams()">Porównaj</button>
+            <div class="md:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-200 relative group">
+                <h3 class="text-sm font-bold text-gray-400 uppercase mb-2 tracking-wider">Gość (Drużyna B)</h3>
+                
+                <div class="relative">
+                    <input type="text" id="searchB" placeholder="Wpisz nazwę..." onkeyup="handleSearch('B')"
+                           class="w-full border-gray-200 border-b-2 py-2 text-lg font-semibold focus:outline-none focus:border-red-500 transition-colors bg-transparent">
+                    
+                    <div id="resultsB" class="absolute w-full bg-white border border-gray-100 shadow-xl rounded-b-xl mt-1 max-h-60 overflow-y-auto z-50 hidden no-scrollbar"></div>
+                </div>
 
-    <h2>Historia meczów</h2>
-    <table border="1" id="h2hTable">
-    <thead>
-        <tr>
-            <th>Data</th>
-            <th>Drużyna A</th>
-            <th>Drużyna B</th>
-            <th>Wynik</th>
-            <th>Rodzaj rozgrywek</th>  <!-- Nowa kolumna -->
-        </tr>
-    </thead>
-    <tbody></tbody>
-    </table>
+                <div id="selectedB" class="mt-4 hidden flex items-center justify-end animate-fade-in">
+                    <span id="nameB" class="text-xl font-bold text-gray-900 mr-3"></span>
+                    <img id="imgB" src="" class="w-12 h-12 object-contain">
+                </div>
+            </div>
 
+        </div>
+
+        <div class="text-center mb-12">
+            <button onclick="compareTeams()" id="compareBtn" disabled
+                class="bg-gray-300 text-gray-500 cursor-not-allowed font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform scale-95">
+                Wybierz obie drużyny
+            </button>
+        </div>
+
+        <div id="analysisSection" class="hidden space-y-10">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-900 mb-6 text-center">Bilans Zwycięstw</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="winChart"></canvas>
+                    </div>
+                    <p id="totalMatches" class="text-center text-gray-400 text-sm mt-4"></p>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 class="text-lg font-bold text-gray-900 mb-6 text-center">Średnia Goli na Mecz</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="goalsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-8 py-6 bg-gray-50 border-b border-gray-200">
+                    <h3 class="text-xl font-bold text-gray-900">Ostatnie bezpośrednie mecze</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-100">
+                        <thead class="bg-white">
+                            <tr>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Data</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Rozgrywki</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Gospodarz</th>
+                                <th class="px-6 py-4 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">Wynik</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Gość</th>
+                            </tr>
+                        </thead>
+                        <tbody id="h2hTableBody" class="bg-white divide-y divide-gray-50 text-sm">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div> </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // --- Funkcja wczytująca ligi ---
-        async function loadLeagues() {
-            const res = await fetch('/leagues');
-            const leagues = await res.json();
+        let teamA = null;
+        let teamB = null;
+        let winChartInstance = null;
+        let goalsChartInstance = null;
+        let timeouts = {};
 
-            const leagueSelect = document.getElementById("leagueSelect");
-            leagueSelect.innerHTML = "";
+        // --- WYSZUKIWARKA ---
+        function handleSearch(side) {
+            clearTimeout(timeouts[side]);
+            const query = document.getElementById(`search${side}`).value;
+            const resultsDiv = document.getElementById(`results${side}`);
 
-            // Dodaj opcję "-- Wybierz ligę --"
-            leagueSelect.appendChild(new Option("-- Wybierz ligę --", ""));
-
-            // Dodaj ligi do selecta
-            leagues.forEach(league => {
-                leagueSelect.appendChild(new Option(league.name, league.id));
-            });
-
-            // Dodaj event listener
-            leagueSelect.addEventListener("change", loadTeams);
-        }
-
-        // --- Funkcja wczytująca drużyny z wybranej ligi ---
-        async function loadTeams() {
-            const leagueId = parseInt(document.getElementById("leagueSelect").value);
-
-            if (!leagueId || isNaN(leagueId)) {
-                console.log("Nie wybrano ligi.");
+            if (query.length < 3) {
+                resultsDiv.classList.add('hidden');
                 return;
             }
 
-            console.log("Loading teams for league ID:", leagueId);
-
-            const res = await fetch(`/teams/${leagueId}`);
-            const teams = await res.json();
-
-            console.log("Received teams:", teams);
-
-            const teamASelect = document.getElementById("teamASelect");
-            const teamBSelect = document.getElementById("teamBSelect");
-
-            // Wyczyść oba selecty
-            teamASelect.innerHTML = "";
-            teamBSelect.innerHTML = "";
-
-            // Dodaj opcję "-- Wybierz drużynę --"
-            teamASelect.appendChild(new Option("-- Wybierz drużynę --", ""));
-            teamBSelect.appendChild(new Option("-- Wybierz drużynę --", ""));
-
-            // Dodaj drużyny do obu selectów
-            teams.forEach(team => {
-                teamASelect.appendChild(new Option(team.name, team.id));
-                teamBSelect.appendChild(new Option(team.name, team.id));
-            });
-
-            console.log("Teams loaded successfully.");
+            timeouts[side] = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/search-teams?q=${query}`);
+                    const teams = await res.json();
+                    
+                    resultsDiv.innerHTML = '';
+                    if(teams.length > 0) {
+                        resultsDiv.classList.remove('hidden');
+                        teams.forEach(t => {
+                            const div = document.createElement('div');
+                            div.className = "flex items-center p-3 hover:bg-blue-50 cursor-pointer transition border-b border-gray-50 last:border-0";
+                            div.innerHTML = `
+                                <img src="${t.logo}" class="w-8 h-8 object-contain mr-3">
+                                <div>
+                                    <div class="font-bold text-gray-800">${t.name}</div>
+                                    <div class="text-xs text-gray-400">${t.country}</div>
+                                </div>
+                            `;
+                            div.onclick = () => selectTeam(t, side);
+                            resultsDiv.appendChild(div);
+                        });
+                    } else {
+                        resultsDiv.classList.add('hidden');
+                    }
+                } catch(e) { console.error(e); }
+            }, 300);
         }
 
-        // --- Funkcja porównująca drużyny ---
-        // --- Funkcja porównująca drużyny ---
+        function selectTeam(team, side) {
+            // Zapisz wybór
+            if(side === 'A') teamA = team;
+            else teamB = team;
+
+            // Zaktualizuj UI
+            document.getElementById(`search${side}`).value = ""; // Wyczyść input
+            document.getElementById(`results${side}`).classList.add('hidden'); // Ukryj listę
+            
+            // Pokaż wybrany
+            const selectedDiv = document.getElementById(`selected${side}`);
+            selectedDiv.classList.remove('hidden');
+            document.getElementById(`img${side}`).src = team.logo;
+            document.getElementById(`name${side}`).textContent = team.name;
+
+            updateButtonState();
+        }
+
+        function updateButtonState() {
+            const btn = document.getElementById('compareBtn');
+            if(teamA && teamB) {
+                btn.disabled = false;
+                btn.textContent = "ANALIZUJ MECZ";
+                btn.className = "bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-10 rounded-full shadow-lg shadow-blue-200 transition-all duration-300 transform hover:scale-105 cursor-pointer";
+            } else {
+                btn.disabled = true;
+                btn.textContent = "Wybierz obie drużyny";
+                btn.className = "bg-gray-200 text-gray-400 cursor-not-allowed font-bold py-3 px-8 rounded-full transition-all";
+            }
+        }
+
+        // --- GŁÓWNA LOGIKA ANALIZY ---
         async function compareTeams() {
-            const teamA = document.getElementById("teamASelect").value;
-            const teamB = document.getElementById("teamBSelect").value;
+            if(!teamA || !teamB) return;
 
-            if (!teamA || !teamB) {
-                alert("Wybierz obie drużyny.");
-                return;
-            }
+            const analysisSec = document.getElementById('analysisSection');
+            analysisSec.classList.remove('hidden');
 
-            console.log("Comparing teams:", teamA, "vs", teamB);
+            // Przewiń do wyników
+            analysisSec.scrollIntoView({ behavior: 'smooth' });
 
-            const res = await fetch(`/head-to-head/${teamA}/${teamB}`);
-            const data = await res.json();
+            // 1. Statystyki i Wykresy
+            try {
+                const statsRes = await fetch(`/head-to-head-stats/${teamA.id}/${teamB.id}`);
+                const stats = await statsRes.json();
+                
+                renderCharts(stats);
+                document.getElementById('totalMatches').textContent = `Łącznie rozegrano ${stats.total_matches} spotkań`;
+            } catch(e) { console.error(e); }
 
-            const tbody = document.querySelector("#h2hTable tbody");
+            // 2. Historia
+            try {
+                const h2hRes = await fetch(`/head-to-head/${teamA.id}/${teamB.id}`);
+                const matches = await h2hRes.json();
+                renderTable(matches);
+            } catch(e) { console.error(e); }
+        }
+
+        function renderCharts(stats) {
+            // Wykres Kołowy (Zwycięstwa)
+            const winCtx = document.getElementById('winChart').getContext('2d');
+            if(winChartInstance) winChartInstance.destroy();
+
+            winChartInstance = new Chart(winCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [teamA.name, 'Remis', teamB.name],
+                    datasets: [{
+                        data: [stats.team1_wins, stats.draws, stats.team2_wins],
+                        backgroundColor: ['#3b82f6', '#e5e7eb', '#ef4444'], // Blue, Gray, Red
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                    }
+                }
+            });
+
+            // Wykres Słupkowy (Gole)
+            const goalsCtx = document.getElementById('goalsChart').getContext('2d');
+            if(goalsChartInstance) goalsChartInstance.destroy();
+
+            goalsChartInstance = new Chart(goalsCtx, {
+                type: 'bar',
+                data: {
+                    labels: [teamA.name, teamB.name],
+                    datasets: [{
+                        label: 'Średnia goli',
+                        data: [stats.team1_avg_goals, stats.team2_avg_goals],
+                        backgroundColor: ['#93c5fd', '#fca5a5'],
+                        borderRadius: 10,
+                        barPercentage: 0.5
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function renderTable(matches) {
+            const tbody = document.getElementById('h2hTableBody');
             tbody.innerHTML = "";
 
-            if (data.length === 0) {
-                const row = document.createElement("tr");
-                row.innerHTML = `<td colspan="5">Brak wspólnych meczów.</td>`;
-                tbody.appendChild(row);
+            if(matches.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-gray-400">Brak historii spotkań między tymi drużynami.</td></tr>`;
                 return;
             }
 
-            data.forEach(match => {
-                const row = document.createElement("tr");
+            matches.forEach(m => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition";
+                
+                // Stylizacja zwycięzcy
+                const homeClass = m.winner === "home" ? "font-bold text-gray-900" : "text-gray-500";
+                const awayClass = m.winner === "away" ? "font-bold text-gray-900" : "text-gray-500";
+                const scoreClass = "bg-gray-100 text-gray-800 font-mono font-bold px-3 py-1 rounded-lg";
 
-                // Pogrubienie zwycięzcy
-                let homeCell = match.home;
-                let awayCell = match.away;
-
-                if (match.winner === "home") {
-                    homeCell = `<strong>${match.home}</strong>`;
-                } else if (match.winner === "away") {
-                    awayCell = `<strong>${match.away}</strong>`;
-                }
-                // Jeśli remis — żadna drużyna nie jest pogrubiona
-
-                row.innerHTML = `
-                    <td>${match.date}</td>
-                    <td>${homeCell}</td>
-                    <td>${awayCell}</td>
-                    <td>${match.score}</td>
-                    <td>${match.league_name}</td>
+                tr.innerHTML = `
+                    <td class="px-6 py-4 text-gray-500">${m.date}</td>
+                    <td class="px-6 py-4 text-gray-400 text-xs uppercase tracking-wide">${m.league_name}</td>
+                    <td class="px-6 py-4 text-right ${homeClass}">${m.home}</td>
+                    <td class="px-6 py-4 text-center"><span class="${scoreClass}">${m.score}</span></td>
+                    <td class="px-6 py-4 text-left ${awayClass}">${m.away}</td>
                 `;
-                tbody.appendChild(row);
+                tbody.appendChild(tr);
             });
         }
-
-        // --- Wczytaj ligi przy załadowaniu strony ---
-        loadLeagues();
     </script>
 </body>
 </html>
