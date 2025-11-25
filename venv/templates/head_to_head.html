@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Head-to-Head Analysis</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        select, button { padding: 8px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Head-to-Head Analysis</h1>
+
+    <a href="/">Wróć do strony głównej</a>
+
+    <label>Wybierz ligę: </label>
+    <select id="leagueSelect">
+        <option value="">-- Wybierz ligę --</option>
+        <!-- Ligowe opcje zostaną załadowane dynamicznie -->
+    </select>
+
+    <label>Drużyna A: </label>
+    <select id="teamASelect">
+        <option value="">-- Wybierz drużynę --</option>
+        <!-- Drużynowe opcje zostaną załadowane dynamicznie -->
+    </select>
+
+    <label>Drużyna B: </label>
+    <select id="teamBSelect">
+        <option value="">-- Wybierz drużynę --</option>
+        <!-- Drużynowe opcje zostaną załadowane dynamicznie -->
+    </select>
+
+    <button onclick="compareTeams()">Porównaj</button>
+
+    <h2>Historia meczów</h2>
+    <table border="1" id="h2hTable">
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Drużyna A</th>
+            <th>Drużyna B</th>
+            <th>Wynik</th>
+            <th>Rodzaj rozgrywek</th>  <!-- Nowa kolumna -->
+        </tr>
+    </thead>
+    <tbody></tbody>
+    </table>
+
+    <script>
+        // --- Funkcja wczytująca ligi ---
+        async function loadLeagues() {
+            const res = await fetch('/leagues');
+            const leagues = await res.json();
+
+            const leagueSelect = document.getElementById("leagueSelect");
+            leagueSelect.innerHTML = "";
+
+            // Dodaj opcję "-- Wybierz ligę --"
+            leagueSelect.appendChild(new Option("-- Wybierz ligę --", ""));
+
+            // Dodaj ligi do selecta
+            leagues.forEach(league => {
+                leagueSelect.appendChild(new Option(league.name, league.id));
+            });
+
+            // Dodaj event listener
+            leagueSelect.addEventListener("change", loadTeams);
+        }
+
+        // --- Funkcja wczytująca drużyny z wybranej ligi ---
+        async function loadTeams() {
+            const leagueId = parseInt(document.getElementById("leagueSelect").value);
+
+            if (!leagueId || isNaN(leagueId)) {
+                console.log("Nie wybrano ligi.");
+                return;
+            }
+
+            console.log("Loading teams for league ID:", leagueId);
+
+            const res = await fetch(`/teams/${leagueId}`);
+            const teams = await res.json();
+
+            console.log("Received teams:", teams);
+
+            const teamASelect = document.getElementById("teamASelect");
+            const teamBSelect = document.getElementById("teamBSelect");
+
+            // Wyczyść oba selecty
+            teamASelect.innerHTML = "";
+            teamBSelect.innerHTML = "";
+
+            // Dodaj opcję "-- Wybierz drużynę --"
+            teamASelect.appendChild(new Option("-- Wybierz drużynę --", ""));
+            teamBSelect.appendChild(new Option("-- Wybierz drużynę --", ""));
+
+            // Dodaj drużyny do obu selectów
+            teams.forEach(team => {
+                teamASelect.appendChild(new Option(team.name, team.id));
+                teamBSelect.appendChild(new Option(team.name, team.id));
+            });
+
+            console.log("Teams loaded successfully.");
+        }
+
+        // --- Funkcja porównująca drużyny ---
+        // --- Funkcja porównująca drużyny ---
+        async function compareTeams() {
+            const teamA = document.getElementById("teamASelect").value;
+            const teamB = document.getElementById("teamBSelect").value;
+
+            if (!teamA || !teamB) {
+                alert("Wybierz obie drużyny.");
+                return;
+            }
+
+            console.log("Comparing teams:", teamA, "vs", teamB);
+
+            const res = await fetch(`/head-to-head/${teamA}/${teamB}`);
+            const data = await res.json();
+
+            const tbody = document.querySelector("#h2hTable tbody");
+            tbody.innerHTML = "";
+
+            if (data.length === 0) {
+                const row = document.createElement("tr");
+                row.innerHTML = `<td colspan="5">Brak wspólnych meczów.</td>`;
+                tbody.appendChild(row);
+                return;
+            }
+
+            data.forEach(match => {
+                const row = document.createElement("tr");
+
+                // Pogrubienie zwycięzcy
+                let homeCell = match.home;
+                let awayCell = match.away;
+
+                if (match.winner === "home") {
+                    homeCell = `<strong>${match.home}</strong>`;
+                } else if (match.winner === "away") {
+                    awayCell = `<strong>${match.away}</strong>`;
+                }
+                // Jeśli remis — żadna drużyna nie jest pogrubiona
+
+                row.innerHTML = `
+                    <td>${match.date}</td>
+                    <td>${homeCell}</td>
+                    <td>${awayCell}</td>
+                    <td>${match.score}</td>
+                    <td>${match.league_name}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // --- Wczytaj ligi przy załadowaniu strony ---
+        loadLeagues();
+    </script>
+</body>
+</html>

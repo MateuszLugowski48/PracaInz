@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Football App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        #timeline p { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Witaj w Football App!</h1>
+
+    <a href="/head-to-head">Head-to-Head Analysis</a>
+    <a href="/head-to-head-extended">Head-to-Head Extended Analysis</a>
+    <!-- Live Score -->
+    <h2>Live Score</h2>
+    <table border="1" id="liveTable">
+        <thead>
+            <tr>
+                <th>Home</th>
+                <th>Away</th>
+                <th>Score</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <!-- Timeline zdarzeń -->
+    <h2>Timeline zdarzeń</h2>
+    <div id="timeline"></div>
+
+    <!-- Form Tracker -->
+    <h2>Form Tracker drużyny</h2>
+    <label>Wybierz drużynę: </label>
+    <select id="teamSelect">
+        <option value="">-- Wybierz drużynę --</option>
+        <option value="33">Manchester United</option>
+        <option value="34">Manchester City</option>
+        <option value="40">Liverpool</option>
+        <option value="36">Chelsea</option>
+        <option value="38">Arsenal</option>
+        <option value="541">Real Madrid</option>
+        <option value="529">Barcelona</option>
+    </select>
+    <button onclick="loadForm()">Załaduj formę</button>
+
+    <canvas id="formChart" width="400" height="200"></canvas>
+
+    <!-- Załaduj Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // --- Live Score ---
+        async function fetchLive() {
+            const res = await fetch('/live');
+            const data = await res.json();
+            const tbody = document.querySelector("#liveTable tbody");
+            tbody.innerHTML = "";
+            data.forEach(match => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${match.home}</td>
+                    <td>${match.away}</td>
+                    <td>${match.score}</td>
+                    <td>${match.status}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // --- Timeline ---
+        async function fetchEvents() {
+            const res = await fetch('/live-events');
+            const data = await res.json();
+            const timeline = document.getElementById("timeline");
+            timeline.innerHTML = "";
+
+            data.forEach(event => {
+                const p = document.createElement("p");
+                p.innerHTML = `<strong>${event.time}'</strong> ${event.type} – ${event.player} (${event.team})`;
+                timeline.appendChild(p);
+            });
+        }
+
+        // --- Form Tracker ---
+                let formChart = null;
+
+        async function loadForm() {
+    const teamId = document.getElementById("teamSelect").value;
+    if (!teamId) {
+        alert("Wybierz drużynę!");
+        return;
+    }
+
+    const res = await fetch(`/team-form/${teamId}`);
+    const data = await res.json();
+
+    console.log("Received data:", data);
+
+    if (data.length === 0) {
+        alert("Brak danych dla tej drużyny.");
+        return;
+    }
+
+    const labels = data.map(m => m.opponent);
+    const points = data.map(m => m.points);
+
+    const ctx = document.getElementById('formChart').getContext('2d');
+
+    if (formChart) {
+        formChart.destroy();
+    }
+
+    formChart = new Chart(ctx, {
+        type: 'line',
+        data: { 
+            labels: labels,
+            datasets: [{
+                label: 'Punkty',
+                data: points, 
+                borderColor: 'rgba(75, 192, 192, 1)',
+                tension: 0.1
+            }]
+        }
+    });
+}
+
+        // --- Odświeżanie ---
+        fetchLive();
+        fetchEvents();
+        setInterval(fetchLive, 30000);
+        setInterval(fetchEvents, 30000);
+    </script>
+</body>
+</html>
