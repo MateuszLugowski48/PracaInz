@@ -13,26 +13,64 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* --- CSS DRABINKI (Standardowa + Agregacja) --- */
-        .bracket-col {
-            display: flex; flex-direction: column; justify-content: space-around;
-            min-width: 15rem; /* Stała szerokość kolumny */
-            margin-right: 2.5rem; /* Odstęp między kolumnami */
+        /* --- CSS DRZEWKA (REKURENCYJNE) --- */
+        /* Pojedynczy węzeł: [Dzieci (z lewej)] --- [Mecz] */
+        .node-wrapper {
+            display: flex;
+            align-items: center;
         }
-        .bracket-connector { position: relative; }
-        
-        /* Linia w prawo (łącznik) */
-        .bracket-connector::after {
-            content: ''; position: absolute; 
-            top: 50%; right: -2.5rem; /* Długość linii */
-            width: 2.5rem; height: 2px; 
-            background: #cbd5e1; z-index: 0;
+
+        /* Kontener na gałęzie wchodzące do meczu (np. 2 półfinały) */
+        .branch-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin-right: 2rem; /* Odstęp poziomy linii */
+            position: relative;
         }
-        /* Ukryj linię dla ostatniej kolumny (Finał) */
-        .bracket-col:last-child .bracket-connector::after { display: none; }
+
+        /* Pozioma linia łącząca gałąź z rodzicem */
+        .connector-horizontal {
+            width: 2rem;
+            height: 2px;
+            background-color: #cbd5e1; /* gray-300 */
+        }
+
+        /* Pionowa klamra łącząca dzieci */
+        .bracket-brace {
+            position: absolute;
+            right: 0;
+            width: 2px;
+            background-color: #cbd5e1;
+            /* Wysokość klamry będzie automatycznie wynikać z wysokości kontenera, 
+               ale musimy ją ograniczyć, żeby nie wychodziła poza środki dzieci. 
+               Używamy tricku z marginesami na dzieciach. */
+            top: 25%; bottom: 25%; /* Działa dla 2 dzieci o równej wysokości */
+        }
         
-        .match-card { transition: all 0.2s; }
-        .match-card:hover { transform: scale(1.02); z-index: 20; border-color: #3b82f6; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        /* Jeśli jest tylko 1 dziecko (np. brak meczu w parze), ukrywamy klamrę */
+        .branch-container.single-child .bracket-brace { display: none; }
+        /* I rysujemy prostą linię */
+        .branch-container.single-child::after {
+            content: ''; position: absolute; right: 0; top: 50%; width: 10px; height: 2px; background: #cbd5e1;
+        }
+
+        /* Karta Meczu */
+        .match-card {
+            width: 15rem;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 10;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .match-card:hover { transform: scale(1.02); border-color: #3b82f6; z-index: 20; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+
+        /* Wyróżnienie finału */
+        .final-card { border-color: #facc15; background-color: #fefce8; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -101,9 +139,8 @@
         </div>
 
         <div id="view-bracket" class="hidden fade-in">
-            <div id="bracketWrapper" class="w-full overflow-x-auto pb-6">
-                <div id="bracketContainer" class="flex items-stretch min-w-max px-8 mx-auto">
-                    </div>
+            <div id="bracketWrapper" class="w-full overflow-x-auto pb-6 flex justify-center">
+                <div id="bracketContainer" class="p-10 flex items-center"></div>
             </div>
             <div id="bracketMessage" class="hidden text-center text-gray-400 py-12">Brak fazy pucharowej dla tych rozgrywek.</div>
         </div>
@@ -111,43 +148,45 @@
     </div>
 
     <script>
+        // --- KONFIGURACJA I SEZONY ---
         const currentYear = new Date().getFullYear();
-        const seasons = Array.from({length: 15}, (_, i) => (currentYear + 1) - i); 
+        const minYear = 2020; // OGRANICZENIE DO 2020
+        const seasons = [];
+        for (let y = currentYear + 1; y >= minYear; y--) { seasons.push(y); }
+        
         let searchTimeout = null;
 
         const translations = {
             "Final": "Finał", "Semi-finals": "Półfinał", "Quarter-finals": "Ćwierćfinał",
             "Round of 16": "1/8 Finału", "Round of 32": "1/16 Finału", "Round of 64": "1/32 Finału",
-            "Preliminary Round": "Runda Wstępna", "Regular Season": "Sezon Zasadniczy", "Group Stage": "Faza Grupowa"
+            "Preliminary Round": "Runda Wstępna", "Regular Season": "Sezon Zasadniczy", "Group Stage": "Faza Grupowa",
+            "Knockout Round Play-offs": "Baraże o 1/8", "Round of 16 Play-offs": "Baraże o 1/8"
         };
 
-        // Kolejność rund w drabince (Lewo -> Prawo)
-        const bracketRoundsOrder = ["Round of 64", "Round of 32", "Round of 16", "Quarter-finals", "Semi-finals", "Final"];
+        // Mapa rodzic -> dziecko (do szukania wstecz)
+        const prevRoundMap = {
+            "Final": "Semi-finals", "Semi-finals": "Quarter-finals", "Quarter-finals": "Round of 16",
+            "Round of 16": "Round of 32", "Round of 32": "Round of 64"
+        };
+        
+        // Priorytety do znajdowania korzenia drzewa
+        const roundPriority = ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32"];
 
-        // --- KLUCZOWA POPRAWKA NORMALIZACJI ---
         function normalizeRoundName(roundName) {
             if(!roundName) return "";
             const r = roundName.toLowerCase();
-
-            // Najpierw sprawdź "Finał" (żeby nie pomylić z 1/16 finału)
+            if (r.includes("qualifying") || r.includes("preliminary")) return roundName; 
             if (r.includes("final") && !r.includes("1/") && !r.includes("semi") && !r.includes("quarter") && !r.includes("8") && !r.includes("16") && !r.includes("32") && !r.includes("64")) return "Final";
-            
-            // Potem półfinały i ćwierćfinały
             if (r.includes("semi")) return "Semi-finals";
             if (r.includes("quarter")) return "Quarter-finals";
-
-            // Potem rundy numeryczne (Kolejność ważna! Najpierw "1/16" zanim sprawdzimy "16")
             if (r.includes("1/32") || r.includes("64")) return "Round of 64";
-            if (r.includes("1/16") || r.includes("32")) return "Round of 32";
-            if (r.includes("1/8") || r.includes("16") || r.includes("8th")) return "Round of 16"; // 8th Finals = 1/8
-
-            // Reszta
-            if (r.includes("preliminary")) return "Preliminary Round";
+            if (r.includes("1/16") || r.includes("round of 32") || r.includes("32nd") || r.includes("knockout round play-offs") || r.includes("1/16 finals")) return "Round of 32";
+            if (r.includes("1/8") || r.includes("round of 16") || r.includes("8th")) return "Round of 16";
             return roundName; 
         }
 
         function translate(text) {
-            const normalized = normalizeRoundName(text); // Tłumacz znormalizowaną nazwę
+            const normalized = normalizeRoundName(text);
             if (translations[normalized]) return translations[normalized];
             return text;
         }
@@ -158,10 +197,10 @@
             s.value = seasons.includes(2024) ? 2024 : seasons[0];
         }
 
-        // --- STRATEGIA KOLORÓW ---
-        function getStyleForCL(rank, description, totalTeams) {
-            const desc = description ? description.toLowerCase() : "";
-            if (desc.includes("league phase") || totalTeams > 10) {
+        // --- LOGIKA KOLORÓW (Poprawiona) ---
+        function getStyleForCL(rank, desc, total) {
+            desc = desc ? desc.toLowerCase() : "";
+            if (desc.includes("league phase") || total > 10) {
                 if (rank <= 8) return "border-l-4 border-blue-800 bg-blue-100"; 
                 if (rank <= 24) return "border-l-4 border-blue-400 bg-blue-50";
                 return "border-transparent";
@@ -170,30 +209,30 @@
             if (rank === 3) return "border-l-4 border-orange-400 bg-orange-50";
             return "border-transparent";
         }
-        function getStyleForEL(rank, description, totalTeams) {
-            const desc = description ? description.toLowerCase() : "";
-            if (desc.includes("league phase") || totalTeams > 10) {
+        function getStyleForEL(rank, desc, total) {
+            desc = desc ? desc.toLowerCase() : "";
+            if (desc.includes("league phase") || total > 10) {
                 if (rank <= 8) return "border-l-4 border-orange-700 bg-orange-100"; 
                 if (rank <= 24) return "border-l-4 border-orange-400 bg-orange-50";
                 return "border-transparent";
             }
-            // Stara LE
             if (rank <= 2) return "border-l-4 border-orange-500 bg-orange-50"; 
             if (rank === 3) return "border-l-4 border-green-400 bg-green-50";
             return "border-transparent";
         }
-        function getStyleForUECL(rank, description, totalTeams) {
-            const desc = description ? description.toLowerCase() : "";
-            if (desc.includes("league phase") || totalTeams > 10) {
+        function getStyleForUECL(rank, desc, total) {
+            desc = desc ? desc.toLowerCase() : "";
+            if (desc.includes("league phase") || total > 10) {
                 if (rank <= 8) return "border-l-4 border-green-700 bg-green-100"; 
                 if (rank <= 24) return "border-l-4 border-green-400 bg-green-50";
                 return "border-transparent";
             }
-            if (rank <= 2) return "border-l-4 border-green-500 bg-green-50";
+            if (rank <= 1) return "border-l-4 border-green-600 bg-green-100"; // W starej LK tylko 1. wychodził
+            if (rank === 2) return "border-l-4 border-green-400 bg-green-50";
             return "border-transparent";
         }
-        function getStyleForDomestic(rank, description, totalTeams) {
-            const desc = description ? description.toLowerCase() : "";
+        function getStyleForDomestic(rank, desc, total) {
+            desc = desc ? desc.toLowerCase() : "";
             if (desc.includes("champions league")) return "border-l-4 border-blue-600 bg-blue-50";
             if (desc.includes("europa league")) return "border-l-4 border-orange-500 bg-orange-50";
             if (desc.includes("conference")) return "border-l-4 border-green-500 bg-green-50";
@@ -201,81 +240,43 @@
             if (desc.includes("promotion")) return "border-l-4 border-blue-400 bg-blue-50";
             if (rank <= 4) return "border-l-4 border-blue-600 bg-blue-50"; 
             if (rank === 5) return "border-l-4 border-orange-500 bg-orange-50";
-            if (rank > totalTeams - 3) return "border-l-4 border-red-500 bg-red-50";
+            if (rank > total - 3) return "border-l-4 border-red-500 bg-red-50";
             return "border-transparent";
         }
 
         // --- FETCH ---
-        function handleLeagueSearch() {
-            clearTimeout(searchTimeout); const q = document.getElementById("leagueSearchInput").value; const r = document.getElementById("leagueSearchResults"); if (q.length < 3) { r.classList.add('hidden'); return; }
-            searchTimeout = setTimeout(async () => { try { const res = await fetch(`/search-leagues?q=${q}`); const data = await res.json(); r.innerHTML = '';
-            if(data.length>0){r.classList.remove('hidden');data.forEach(l=>{const d=document.createElement('div');d.className="flex items-center px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50";d.innerHTML=`<img src="${l.logo}" class="w-6 h-6 mr-3 object-contain"><div class="text-sm font-bold">${l.name}<br><span class="text-xs text-gray-500 font-normal">${l.country}</span></div>`;d.onclick=()=>{document.getElementById("selectedLeagueId").value=l.id;document.getElementById("selectedLeagueName").value=l.name;document.getElementById("leagueSearchInput").value=l.name;r.classList.add('hidden');loadData();};r.appendChild(d);});}else r.classList.add('hidden'); } catch(e) {} }, 300);
-        }
+        function handleLeagueSearch() { clearTimeout(searchTimeout); const q = document.getElementById("leagueSearchInput").value; const r = document.getElementById("leagueSearchResults"); if (q.length < 3) { r.classList.add('hidden'); return; } searchTimeout = setTimeout(async () => { try { const res = await fetch(`/search-leagues?q=${q}`); const data = await res.json(); r.innerHTML = ''; if(data.length>0){r.classList.remove('hidden');data.forEach(l=>{const d=document.createElement('div');d.className="flex items-center px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50";d.innerHTML=`<img src="${l.logo}" class="w-6 h-6 mr-3 object-contain"><div class="text-sm font-bold">${l.name}<br><span class="text-xs text-gray-500 font-normal">${l.country}</span></div>`;d.onclick=()=>{document.getElementById("selectedLeagueId").value=l.id;document.getElementById("selectedLeagueName").value=l.name;document.getElementById("leagueSearchInput").value=l.name;r.classList.add('hidden');loadData();};r.appendChild(d);});}else r.classList.add('hidden'); } catch(e) {} }, 300); }
+        function loadData() { const lid = document.getElementById("selectedLeagueId").value; const seas = document.getElementById("seasonSelect").value; const lname = document.getElementById("selectedLeagueName").value; if(!lid) return; document.getElementById("pageTitle").textContent = `${lname} (${seas}/${parseInt(seas)+1})`; loadStandings(lid, seas); loadFixtures(lid, seas); }
 
-        function loadData() {
-            const lid = document.getElementById("selectedLeagueId").value;
-            const seas = document.getElementById("seasonSelect").value;
-            const lname = document.getElementById("selectedLeagueName").value;
-            if(!lid) return;
-            document.getElementById("pageTitle").textContent = `${lname} (${seas}/${parseInt(seas)+1})`;
-            loadStandings(lid, seas);
-            loadFixtures(lid, seas);
-        }
-
-        // --- RENDER TABELA (POPRAWKI UI) ---
+        // --- RENDER TABELA ---
         async function loadStandings(lid, seas) {
-            const c = document.getElementById("tablesContainer");
-            c.innerHTML = '<div class="text-center py-10">Ładowanie...</div>';
-            document.getElementById("legend").innerHTML = "";
+            const c = document.getElementById("tablesContainer"); c.innerHTML = '<div class="text-center py-10">Ładowanie...</div>'; document.getElementById("legend").innerHTML = "";
             try {
-                const res = await fetch(`/standings/${lid}?season=${seas}`);
-                const groups = await res.json();
-                c.innerHTML = "";
+                const res = await fetch(`/standings/${lid}?season=${seas}`); const groups = await res.json(); c.innerHTML = "";
                 if (!groups || groups.length === 0) { c.innerHTML = '<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-700">Brak tabeli (sprawdź zakładkę Drabinka).</div>'; return; }
-
                 const leagueName = document.getElementById("selectedLeagueName").value.toLowerCase();
-
                 groups.forEach(rows => {
                     if(rows.length > 0 && rows[0].group_name) c.innerHTML += `<h3 class="font-bold mt-8 mb-3 text-xl text-gray-800">${rows[0].group_name}</h3>`;
-                    const tableWrapper = document.createElement("div");
-                    tableWrapper.className = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6";
-                    
+                    const tableWrapper = document.createElement("div"); tableWrapper.className = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6";
                     let rowsHtml = rows.map(r => {
                         let styleClass = "";
-                        // Strategia
                         if (leagueName.includes("champions league")) styleClass = getStyleForCL(r.rank, r.description, rows.length);
                         else if (leagueName.includes("europa league")) styleClass = getStyleForEL(r.rank, r.description, rows.length);
                         else if (leagueName.includes("conference league")) styleClass = getStyleForUECL(r.rank, r.description, rows.length);
                         else styleClass = getStyleForDomestic(r.rank, r.description, rows.length);
-
-                        // WIĘKSZE LOGA, WIEKSZY PADDING
-                        return `<tr class="hover:bg-gray-50 transition group search-row" data-team="${r.team.toLowerCase()}">
-                            <td class="px-4 py-4 text-center font-bold text-gray-600 ${styleClass}">${r.rank}</td>
-                            <td class="px-4 py-4 flex items-center">
-                                <div class="w-8 h-8 mr-4 flex-shrink-0 flex items-center justify-center bg-white p-0.5 rounded-full shadow-sm border border-gray-100">
-                                    <img src="${r.logo}" class="w-full h-full object-contain">
-                                </div>
-                                <span class="font-semibold text-gray-900">${r.team}</span>
-                            </td>
-                            <td class="px-4 py-4 text-center">${r.played}</td>
-                            <td class="px-4 py-4 text-center font-bold bg-gray-50">${r.points}</td>
-                            <td class="px-4 py-3 text-center hidden sm:table-cell text-sm text-gray-500">${r.goalsDiff}</td>
-                        </tr>`;
+                        return `<tr class="hover:bg-gray-50 transition group search-row" data-team="${r.team.toLowerCase()}"><td class="px-4 py-4 text-center font-bold text-gray-600 ${styleClass}">${r.rank}</td><td class="px-4 py-4 flex items-center"><div class="w-8 h-8 mr-4 flex-shrink-0 flex items-center justify-center bg-white p-0.5 rounded-full shadow-sm border border-gray-100"><img src="${r.logo}" class="w-full h-full object-contain"></div><span class="font-semibold text-gray-900">${r.team}</span></td><td class="px-4 py-4 text-center">${r.played}</td><td class="px-4 py-4 text-center font-bold bg-gray-50">${r.points}</td><td class="px-4 py-3 text-center hidden sm:table-cell text-sm text-gray-500">${r.goalsDiff}</td></tr>`;
                     }).join("");
                     tableWrapper.innerHTML = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-100"><tr><th class="px-4 py-3 w-16 text-center">#</th><th class="px-4 py-3 text-left">Drużyna</th><th class="px-4 py-3 w-16 text-center">M</th><th class="px-4 py-3 w-16 text-center">Pkt</th><th class="px-4 py-3 w-16 text-center hidden sm:table-cell">+/-</th></tr></thead><tbody class="divide-y divide-gray-100">${rowsHtml}</tbody></table>`;
                     c.appendChild(tableWrapper);
                 });
-
-                // Legenda
                 const legDiv = document.getElementById("legend");
-                if (leagueName.includes("champions")) legDiv.innerHTML = `<div class="flex gap-4"><span class="text-xs"><span class="w-2 h-2 inline-block bg-blue-800 mr-1 rounded-full"></span>Awans (Faza Ligowa / 1/8)</span><span class="text-xs"><span class="w-2 h-2 inline-block bg-blue-400 mr-1 rounded-full"></span>Baraże</span></div>`;
+                if (leagueName.includes("champions")) legDiv.innerHTML = `<div class="flex gap-4"><span class="text-xs"><span class="w-2 h-2 inline-block bg-blue-800 mr-1 rounded-full"></span>Awans (1-8)</span><span class="text-xs"><span class="w-2 h-2 inline-block bg-blue-400 mr-1 rounded-full"></span>Baraże</span></div>`;
                 else if (leagueName.includes("europa")) legDiv.innerHTML = `<div class="flex gap-4"><span class="text-xs"><span class="w-2 h-2 inline-block bg-orange-700 mr-1 rounded-full"></span>Awans</span><span class="text-xs"><span class="w-2 h-2 inline-block bg-orange-400 mr-1 rounded-full"></span>Baraże</span></div>`;
                 else legDiv.innerHTML = `<div class="flex gap-4"><span class="text-xs"><span class="w-2 h-2 inline-block bg-blue-600 mr-1 rounded-full"></span>LM</span><span class="text-xs"><span class="w-2 h-2 inline-block bg-orange-500 mr-1 rounded-full"></span>LE</span><span class="text-xs"><span class="w-2 h-2 inline-block bg-red-500 mr-1 rounded-full"></span>Spadek</span></div>`;
-
             } catch(e) { console.error(e); }
         }
 
-        // --- RENDER DRABINKA I WYNIKI ---
+        // --- RENDER WYNIKI I DRABINKA ---
         async function loadFixtures(lid, seas) {
             const resCont = document.getElementById("resultsContainer");
             const brackCont = document.getElementById("bracketContainer");
@@ -294,13 +295,11 @@
                     groups[norm].push(m);
                 });
 
-                // 1. Lista (Grupy) - wykluczamy pucharowe
-                const listRounds = Object.keys(groups).filter(k => !bracketRoundsOrder.includes(k));
-                if(listRounds.length === 0) resCont.innerHTML = '<div class="text-center py-8 text-gray-400 italic">Brak meczów fazy grupowej.</div>';
-                
-                // Sortowanie listy (chronologicznie/kolejki)
-                listRounds.sort().reverse(); // Proste sortowanie
-
+                // 1. Lista
+                const bracketKeys = ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32", "Round of 64"];
+                const listRounds = Object.keys(groups).filter(k => !bracketKeys.includes(k));
+                if(listRounds.length === 0) resCont.innerHTML = '<div class="text-center py-8 text-gray-400 italic">Brak meczów fazy grupowej/eliminacyjnej.</div>';
+                listRounds.sort().reverse();
                 listRounds.forEach(round => {
                     let html = `<div class="bg-white rounded-xl border mb-4 overflow-hidden"><div class="bg-gray-100 px-4 py-3 font-bold text-sm text-gray-700 uppercase">${translate(round)}</div><div class="divide-y divide-gray-100">`;
                     html += groups[round].map(m => `<div class="flex items-center p-4 hover:bg-gray-50 search-row" data-team="${m.home.toLowerCase()} ${m.away.toLowerCase()}"><div class="text-xs text-gray-400 w-24 font-mono">${m.date}</div><div class="flex-1 flex justify-between items-center"><div class="flex items-center w-5/12 justify-end"><span class="mr-3 text-sm font-medium text-right truncate">${m.home}</span><img src="${m.home_logo}" class="w-8 h-8 object-contain"></div><div class="font-bold bg-gray-100 px-3 py-1.5 rounded-lg text-sm mx-2 min-w-[60px] text-center">${m.score}</div><div class="flex items-center w-5/12"><img src="${m.away_logo}" class="w-8 h-8 object-contain ml-3 mr-3"><span class="text-sm font-medium text-left truncate">${m.away}</span></div></div></div>`).join("");
@@ -308,90 +307,178 @@
                     resCont.innerHTML += html;
                 });
 
-                // 2. Drabinka (Agregowana) - Wyświetlamy tylko istniejące rundy
-                const availablePlayoffRounds = bracketRoundsOrder.filter(r => groups[r]);
-                if(availablePlayoffRounds.length === 0) brackMsg.classList.remove("hidden");
-                else renderStandardAggregatedBracket(groups, availablePlayoffRounds, brackCont);
+                // 2. Drabinka (Tree from Final)
+                // Znajdź korzeń drzewa (najdalsza dostępna runda)
+                let rootRound = null;
+                for(let r of roundPriority) { // Priority: Final -> Semi -> Quarter ...
+                    if(groups[r]) { rootRound = r; break; }
+                }
+
+                if(!rootRound) {
+                    brackMsg.classList.remove("hidden");
+                } else {
+                    renderRecursiveBracket(groups, rootRound, brackCont);
+                }
 
             } catch(e) { console.error(e); }
         }
 
-        function groupMatchesIntoTies(matches, isFinal) {
-            if(isFinal) return matches.map(m => ({ ...m, isTie: false }));
+        // --- AGREGACJA TIES (Z ID) ---
+        function aggregateTies(matches, isFinal) {
+            if(isFinal && matches.length === 1) return matches.map(m => ({ ...m, isTie: false, winner_id: (m.home_winner ? m.home_id : (m.away_winner ? m.away_id : null)), participants: [m.home_id, m.away_id] }));
+
             const tiesMap = {};
             matches.forEach(m => {
-                const key = [m.home, m.away].sort().join('v');
-                if(!tiesMap[key]) { tiesMap[key] = { team1: m.home, team1_id: m.home_id, team1_logo: m.home_logo, team2: m.away, team2_id: m.away_id, team2_logo: m.away_logo, matches: [], isTie: true, winner1: false, winner2: false }; }
+                const ids = [m.home_id, m.away_id].sort((a,b) => a-b);
+                const key = ids.join('-');
+                if(!tiesMap[key]) {
+                    tiesMap[key] = {
+                        team1: m.home, team1_id: m.home_id, team1_logo: m.home_logo,
+                        team2: m.away, team2_id: m.away_id, team2_logo: m.away_logo,
+                        matches: [], isTie: true, winner1: false, winner2: false,
+                        participants: [m.home_id, m.away_id]
+                    };
+                }
                 tiesMap[key].matches.push(m);
-                if(m.home_winner) { if(m.home === tiesMap[key].team1) tiesMap[key].winner1=true; else tiesMap[key].winner2=true; }
-                if(m.away_winner) { if(m.away === tiesMap[key].team1) tiesMap[key].winner1=true; else tiesMap[key].winner2=true; }
+                // Zbieramy flagi winner
+                if(m.home_winner) { if(m.home_id === tiesMap[key].team1_id) tiesMap[key].winner1=true; else tiesMap[key].winner2=true; }
+                if(m.away_winner) { if(m.away_id === tiesMap[key].team1_id) tiesMap[key].winner1=true; else tiesMap[key].winner2=true; }
             });
+
             return Object.values(tiesMap).map(tie => {
                 let score1=0, score2=0, subscores=[], penaltyInfo="", winnerId=null;
-                let t1WinFlag = false, t2WinFlag = false;
+
                 tie.matches.forEach(m => {
-                    if(m.score.includes("-")) { const [h, a] = m.score.split("-").map(Number); if(m.home_id === tie.team1_id) { score1+=h; score2+=a; subscores.push(`${h}-${a}`); if(m.home_winner) t1WinFlag=true; if(m.away_winner) t2WinFlag=true; } else { score1+=a; score2+=h; subscores.push(`${a}-${h}`); if(m.away_winner) t1WinFlag=true; if(m.home_winner) t2WinFlag=true; } }
+                    if(m.score.includes("-")) {
+                        const [h, a] = m.score.split("-").map(Number);
+                        if(m.home_id === tie.team1_id) { score1+=h; score2+=a; subscores.push(`${h}-${a}`); } 
+                        else { score1+=a; score2+=h; subscores.push(`${a}-${h}`); }
+                    }
                     if(m.penalty) penaltyInfo = m.penalty;
                 });
-                if(score1 > score2) winnerId=tie.team1_id; else if(score2 > score1) winnerId=tie.team2_id;
-                if(tie.winner1) winnerId=tie.team1_id; if(tie.winner2) winnerId=tie.team2_id;
-                // Fallback dla karnych
-                if(!winnerId && score1 === score2) {
-                   const last = tie.matches.sort((a,b)=>b.timestamp-a.timestamp)[0];
-                   if(last.home_winner) winnerId = last.home_id;
-                   if(last.away_winner) winnerId = last.away_id;
+                
+                if (tie.winner1 && !tie.winner2) winnerId = tie.team1_id;
+                else if (tie.winner2 && !tie.winner1) winnerId = tie.team2_id;
+                else if(score1 > score2) winnerId = tie.team1_id;
+                else if(score2 > score1) winnerId = tie.team2_id;
+                else if(score1 === score2) {
+                     const last = tie.matches.sort((a,b)=>b.timestamp-a.timestamp)[0];
+                     if(last.home_winner) winnerId=last.home_id; 
+                     if(last.away_winner) winnerId=last.away_id;
                 }
+                
                 tie.aggregate = `${score1}-${score2}`; tie.subscores = subscores.join(", "); tie.penaltyInfo = penaltyInfo; tie.winner_id = winnerId;
                 return tie;
             });
         }
 
-        function renderStandardAggregatedBracket(groups, availableRounds, container) {
-            container.className = "flex flex-row items-stretch space-x-10 px-8 min-w-max mx-auto"; 
-            availableRounds.forEach(roundName => {
-                const rawMatches = groups[roundName];
-                const isFinal = roundName === "Final";
-                const ties = groupMatchesIntoTies(rawMatches, isFinal);
-                
-                // Sortowanie, żeby drabinka była w miarę uporządkowana czasowo
-                ties.sort((a, b) => {
-                    const tA = a.isTie ? Math.min(...a.matches.map(m=>m.timestamp)) : a.timestamp;
-                    const tB = b.isTie ? Math.min(...b.matches.map(m=>m.timestamp)) : b.timestamp;
-                    return tA - tB;
-                });
-
-                const column = document.createElement("div");
-                column.className = "bracket-col"; 
-                ties.forEach(tie => { column.appendChild(createTieCard(tie, roundName)); });
-                container.appendChild(column);
+        // --- BUDOWANIE DRZEWA (REKURENCJA) ---
+        function renderRecursiveBracket(groups, rootRoundName, container) {
+            // Przygotuj dane (agregacja)
+            const roundsData = {};
+            ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32", "Round of 64"].forEach(r => {
+                if(groups[r]) roundsData[r] = aggregateTies(groups[r], r===rootRoundName);
             });
+
+            const rootMatches = roundsData[rootRoundName];
+            
+            function buildNode(match, roundName) {
+                const wrapper = document.createElement("div");
+                wrapper.className = "node-wrapper"; 
+
+                const prevRound = prevRoundMap[roundName];
+                const childrenContainer = document.createElement("div");
+                childrenContainer.className = "branch-container"; 
+
+                if(prevRound && roundsData[prevRound]) {
+                    const p1 = match.isTie ? match.team1_id : match.home_id;
+                    const p2 = match.isTie ? match.team2_id : match.away_id;
+
+                    // Szukaj dzieci
+                    let source1 = roundsData[prevRound].find(m => (m.winner_id === p1));
+                    let source2 = roundsData[prevRound].find(m => (m.winner_id === p2));
+                    
+                    if(!source1) source1 = roundsData[prevRound].find(m => m.participants.includes(p1));
+                    if(!source2) source2 = roundsData[prevRound].find(m => m.participants.includes(p2) && m !== source1);
+
+                    const sources = [source1, source2].filter(Boolean);
+                    
+                    if(sources.length > 0) {
+                        if(sources.length > 1) {
+                            const brace = document.createElement("div");
+                            brace.className = "bracket-brace";
+                            childrenContainer.appendChild(brace);
+                        }
+
+                        sources.forEach(src => {
+                            const childNode = buildNode(src, prevRound);
+                            childNode.style.margin = "10px 0"; 
+                            childrenContainer.appendChild(childNode);
+                        });
+                        
+                        wrapper.appendChild(childrenContainer);
+                        
+                        const connector = document.createElement("div");
+                        connector.className = "connector-horizontal";
+                        wrapper.appendChild(connector);
+                    }
+                }
+
+                const card = createTieCard(match, roundName);
+                wrapper.appendChild(card);
+                return wrapper;
+            }
+
+            container.innerHTML = "";
+            // Jeśli jest wiele meczów w korzeniu (np. brak finału, zaczynamy od półfinałów), renderuj je w kolumnie
+            const rootCol = document.createElement("div");
+            rootCol.className = "flex flex-col space-y-12";
+            
+            rootMatches.forEach(m => {
+                rootCol.appendChild(buildNode(m, rootRoundName));
+            });
+            container.appendChild(rootCol);
         }
 
         function createTieCard(tie, round) {
             const card = document.createElement("div");
             const isFinal = round === "Final";
-            const connectorClass = "bracket-connector";
+            
             let t1, t1_logo, t1_id, t2, t2_logo, t2_id, mainScore, subText, winnerId = tie.winner_id;
 
             if(tie.isTie) {
-                t1=tie.team1; t1_logo=tie.team1_logo; t1_id=tie.team1_id; t2=tie.team2; t2_logo=tie.team2_logo; t2_id=tie.team2_id; mainScore=tie.aggregate; subText = `(${tie.subscores})`;
+                t1=tie.team1; t1_logo=tie.team1_logo; t1_id=tie.team1_id; t2=tie.team2; t2_logo=tie.team2_logo; t2_id=tie.team2_id;
+                mainScore=tie.aggregate; subText = `(${tie.subscores})`;
                 if(tie.penaltyInfo) subText += ` <span class="text-red-500 font-bold">k. ${tie.penaltyInfo}</span>`;
             } else {
-                t1=tie.home; t1_logo=tie.home_logo; t1_id=tie.home_id; t2=tie.away; t2_logo=tie.away_logo; t2_id=tie.away_id; mainScore=tie.score; subText = tie.date;
-                if(tie.home_winner) winnerId = t1_id; if(tie.away_winner) winnerId = t2_id;
+                t1=tie.home; t1_logo=tie.home_logo; t1_id=tie.home_id; t2=tie.away; t2_logo=tie.away_logo; t2_id=tie.away_id;
+                mainScore=tie.score; subText = tie.date;
                 if(tie.penalty) subText += ` <span class="text-red-500 font-bold">k. ${tie.penalty}</span>`;
+                if (tie.home_winner) winnerId=t1_id; if(tie.away_winner) winnerId=t2_id;
             }
 
             const t1Class = winnerId === t1_id ? "font-extrabold text-black" : "font-medium text-gray-500";
             const t2Class = winnerId === t2_id ? "font-extrabold text-black" : "font-medium text-gray-500";
             const s1Class = winnerId === t1_id ? "bg-blue-100 text-blue-800" : "bg-gray-50";
             const s2Class = winnerId === t2_id ? "bg-blue-100 text-blue-800" : "bg-gray-50";
-            let extraStyle = isFinal ? "border-yellow-400 bg-yellow-50 shadow-lg ring-4 ring-yellow-100 w-64" : "bg-white border-gray-200 w-60";
 
-            card.className = `match-card border rounded-xl shadow-sm p-3 text-sm relative z-10 ${extraStyle} flex flex-col justify-center mb-8`; 
+            let extraStyle = isFinal ? "border-yellow-400 bg-yellow-50 shadow-lg ring-4 ring-yellow-100 w-64 final-card" : "border-gray-200";
+
+            card.className = `match-card ${extraStyle} flex flex-col justify-center`;
             card.setAttribute("data-team", `${t1} ${t2}`.toLowerCase());
             
-            card.innerHTML = `<div class="text-[10px] text-gray-400 text-center mb-2 tracking-tight uppercase font-bold">${translate(round)}</div><div class="flex justify-between items-center mb-1.5"><div class="flex items-center overflow-hidden"><img src="${t1_logo}" class="w-5 h-5 mr-2 object-contain"><span class="truncate ${t1Class}">${t1}</span></div><span class="font-mono text-xs px-2 py-0.5 rounded font-bold ${s1Class}">${mainScore.split("-")[0]}</span></div><div class="flex justify-between items-center mb-2"><div class="flex items-center overflow-hidden"><img src="${t2_logo}" class="w-5 h-5 mr-2 object-contain"><span class="truncate ${t2Class}">${t2}</span></div><span class="font-mono text-xs px-2 py-0.5 rounded font-bold ${s2Class}">${mainScore.split("-")[1]}</span></div><div class="text-[10px] text-gray-400 text-center border-t border-gray-100 pt-1.5 whitespace-nowrap overflow-hidden text-ellipsis">${subText}</div>`;
+            card.innerHTML = `
+                <div class="text-[10px] text-gray-400 text-center mb-2 tracking-tight uppercase font-bold">${translate(round)}</div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <div class="flex items-center overflow-hidden mr-2"><img src="${t1_logo}" class="w-5 h-5 mr-2 object-contain"><span class="truncate ${t1Class}">${t1}</span></div>
+                    <span class="font-mono text-xs px-2 py-0.5 rounded font-bold ${s1Class}">${mainScore.split("-")[0]}</span>
+                </div>
+                <div class="flex justify-between items-center mb-2">
+                    <div class="flex items-center overflow-hidden mr-2"><img src="${t2_logo}" class="w-5 h-5 mr-2 object-contain"><span class="truncate ${t2Class}">${t2}</span></div>
+                    <span class="font-mono text-xs px-2 py-0.5 rounded font-bold ${s2Class}">${mainScore.split("-")[1]}</span>
+                </div>
+                <div class="text-[10px] text-gray-400 text-center border-t border-gray-100 pt-1.5 whitespace-nowrap overflow-hidden text-ellipsis">${subText}</div>
+            `;
             return card;
         }
 

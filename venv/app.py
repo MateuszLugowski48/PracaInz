@@ -275,7 +275,6 @@ def get_standings(league_id):
     STANDINGS_CACHE[cache_key] = {'time': now, 'data': formatted_standings}
     return jsonify(formatted_standings)
 
-# --- FIXTURES Z ID ---
 @app.route('/fixtures-by-league/<int:league_id>')
 def get_fixtures_by_league(league_id):
     season = request.args.get('season', default=get_current_season(), type=int)
@@ -296,9 +295,9 @@ def get_fixtures_by_league(league_id):
         matches.append({
             "date": dt.strftime("%d.%m.%Y"), "timestamp": match["fixture"]["timestamp"],
             "round": match["league"]["round"],
-            "home": match["teams"]["home"]["name"], "home_id": match["teams"]["home"]["id"], # ID!
+            "home": match["teams"]["home"]["name"], "home_id": match["teams"]["home"]["id"],
             "home_logo": match["teams"]["home"]["logo"], "home_winner": match["teams"]["home"].get("winner"),
-            "away": match["teams"]["away"]["name"], "away_id": match["teams"]["away"]["id"], # ID!
+            "away": match["teams"]["away"]["name"], "away_id": match["teams"]["away"]["id"],
             "away_logo": match["teams"]["away"]["logo"], "away_winner": match["teams"]["away"].get("winner"),
             "score": f"{goals['home']} - {goals['away']}" if goals['home'] is not None else "-:-",
             "penalty": f"{penalty.get('home')}-{penalty.get('away')}" if penalty.get('home') is not None else None,
