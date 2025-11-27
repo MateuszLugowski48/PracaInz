@@ -10,14 +10,7 @@
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10">
 
-    <nav class="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-4xl mx-auto flex items-center">
-            <a href="javascript:history.back()" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center transition mr-4">
-                <span class="text-xl mr-1">⟵</span> Wróć
-            </a>
-            <span class="font-bold text-gray-700 text-sm uppercase tracking-wider" id="leagueHeader">Ładowanie...</span>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <div class="max-w-4xl mx-auto px-4 mt-6">
         
@@ -184,9 +177,21 @@
                 const list = document.getElementById(listId);
                 list.innerHTML = `
                     <div class="text-xs font-bold text-gray-400 uppercase mt-2 mb-1">Wyjściowa 11</div>
-                    ${l.startXI.map(p => `<div class="flex items-center py-1"><span class="w-6 text-gray-400 text-xs text-right mr-3">${p.player.number}</span><span>${p.player.name}</span></div>`).join('')}
+                    ${l.startXI.map(p => `
+                        <div onclick="window.location.href='/player/${p.player.id}'" class="flex items-center py-1 cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition rounded px-1 group">
+                            <span class="w-6 text-gray-400 text-xs text-right mr-3 group-hover:text-blue-400 font-mono">${p.player.number}</span>
+                            <span class="font-medium">${p.player.name}</span>
+                        </div>
+                    `).join('')}
+                    
                     <div class="text-xs font-bold text-gray-400 uppercase mt-4 mb-1">Rezerwowi</div>
-                    ${l.substitutes.map(p => `<div class="flex items-center py-1 text-gray-500"><span class="w-6 text-gray-300 text-xs text-right mr-3">${p.player.number}</span><span>${p.player.name}</span></div>`).join('')}
+                    ${l.substitutes.map(p => `
+                        <div onclick="window.location.href='/player/${p.player.id}'" class="flex items-center py-1 text-gray-500 cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition rounded px-1 group">
+                            <span class="w-6 text-gray-300 text-xs text-right mr-3 group-hover:text-blue-400 font-mono">${p.player.number}</span>
+                            <span>${p.player.name}</span>
+                        </div>
+                    `).join('')}
+                    
                     <div class="text-xs font-bold text-gray-400 uppercase mt-4 mb-1">Trener</div>
                     <div class="py-1 font-semibold">${l.coach.name}</div>
                 `;

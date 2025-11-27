@@ -16,12 +16,13 @@ STANDINGS_CACHE = {}
 FIXTURES_CACHE = {}
 MATCH_CACHE = {}
 TEAM_PROFILE_CACHE = {}
+PLAYER_CACHE = {}
 
 LIVE_CACHE_TIME = 60 
 TEAM_FORM_CACHE_TIME = 300 
 LONG_CACHE_TIME = 3600 
 
-# --- SŁOWNIK DO WYSZUKIWARKI ---
+# --- SŁOWNIK TŁUMACZEŃ DLA WYSZUKIWARKI LIG ---
 POLISH_LEAGUE_MAP = {
     "liga mistrzów": "Champions League", "liga mistrzow": "Champions League",
     "liga europy": "Europa League", "liga konferencji": "Conference League",
@@ -35,6 +36,27 @@ def get_current_season():
     now = datetime.now()
     if now.month >= 8: return now.year
     else: return now.year - 1
+
+# --- DYNAMICZNE WCZYTYWANIE ID LIG Z PLIKU JSON ---
+def get_search_league_ids():
+    """
+    Pobiera listę ID lig z pliku data/leagues.json.
+    Dzięki temu lista lig do przeszukania nie jest wpisana na sztywno w kodzie.
+    """
+    try:
+        # Ścieżka do pliku w folderze data obok app.py
+        json_path = os.path.join(os.path.dirname(__file__), 'data', 'leagues.json')
+        
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+                # Zwracamy listę samych ID
+                return [l['id'] for l in data.get('leagues', [])]
+    except Exception as e:
+        print(f"Błąd odczytu leagues.json: {e}")
+    
+    # Zapasowe ID (gdyby plik json nie istniał) - Top 5 + Ekstraklasa
+    return [2, 39, 140, 78, 135, 61, 106]
 
 # --- ROUTES ---
 
@@ -51,8 +73,13 @@ def form_tracker_page(): return render_template('form_tracker.html')
 def head_to_head_page(): return render_template('head_to_head.html')
 
 @app.route('/team-search')
-def team_search_page():
-    return render_template('team_search.html')
+def team_search_page(): return render_template('team_search.html')
+
+@app.route('/player-search')
+def player_search_page(): return render_template('player_search.html')
+
+@app.route('/player-h2h')
+def player_h2h_page(): return render_template('player_h2h.html')
 
 @app.route('/live')
 def live_scores():
@@ -137,6 +164,54 @@ def search_leagues():
         })
     SEARCH_CACHE[cache_key] = leagues
     return jsonify(leagues)
+
+# --- WYSZUKIWANIE PIŁKARZY ---
+@app.route('/search-players')
+def search_players():
+    query = request.args.get('q', '')
+    if len(query) < 3: return jsonify([])
+    
+    cache_key = f"player_search_{query}"
+    if cache_key in SEARCH_CACHE: return jsonify(SEARCH_CACHE[cache_key])
+
+    season = get_current_season()
+    players_map = {} 
+
+    # 1. Pobierz dynamicznie listę ID lig z pliku JSON
+    league_ids = get_search_league_ids()
+
+    # 2. Pętla po ligach (bo API wymaga parametru 'league')
+    for league_id in league_ids:
+        try:
+            url = f"{BASE_URL}/players?search={query}&season={season}&league={league_id}"
+            response = requests.get(url, headers=HEADERS)
+            data = response.json()
+            
+            for item in data.get("response", []):
+                p = item["player"]
+                # Unikamy duplikatów (ten sam gracz w lidze i LM)
+                if p["id"] not in players_map:
+                    stats = item["statistics"][0] if item["statistics"] else {}
+                    team_name = stats.get("team", {}).get("name", "Brak klubu")
+                    
+                    players_map[p["id"]] = {
+                        "id": p["id"],
+                        "name": p["name"],
+                        "photo": p["photo"],
+                        "age": p["age"],
+                        "nationality": p["nationality"],
+                        "team": team_name
+                    }
+            
+            # Optymalizacja: Jeśli mamy już 5 wyników, nie odpytuj kolejnych lig
+            if len(players_map) >= 5:
+                break
+        except:
+            continue
+    
+    result_list = list(players_map.values())
+    SEARCH_CACHE[cache_key] = result_list
+    return jsonify(result_list)
 
 @app.route('/team-form/<int:team_id>')
 def team_form(team_id):
@@ -363,63 +438,45 @@ def get_team_profile_data(team_id):
         headers = HEADERS
         season = get_current_season()
         
-        # 1. Info o klubie
         res_info = requests.get(f"{BASE_URL}/teams?id={team_id}", headers=headers).json()
         team_info = res_info['response'][0]['team'] if res_info.get('response') else {}
         venue_info = res_info['response'][0]['venue'] if res_info.get('response') else {}
 
-        # 2. Mecze (Ostatnie 10) - pobieramy najpierw, żeby znaleźć trenera
         res_last = requests.get(f"{BASE_URL}/fixtures?team={team_id}&last=10&season={season}", headers=headers).json()
         last_matches_raw = res_last.get('response', [])
         
         res_next = requests.get(f"{BASE_URL}/fixtures?team={team_id}&next=10&season={season}", headers=headers).json()
 
-        # 3. INTELIGENTNE POBIERANIE TRENERA (LOOP CHECK)
         coach = {}
         coach_found = False
 
-        # Metoda A: Sprawdź w ostatnich 3 meczach (jeśli w ostatnim brak danych)
         if last_matches_raw:
-            # Sprawdzamy max 3 ostatnie mecze
             matches_to_check = last_matches_raw[:3]
-            
             for match_item in matches_to_check:
-                if coach_found: 
-                    break
-                
+                if coach_found: break
                 fixture_id = match_item['fixture']['id']
                 try:
-                    # Pobierz szczegóły meczu (tam są składy i trenerzy)
                     res_details = requests.get(f"{BASE_URL}/fixtures?id={fixture_id}", headers=headers).json()
                     if res_details.get('response'):
                         lineups = res_details['response'][0].get('lineups', [])
                         for lineup in lineups:
-                            # Szukamy składu TEJ drużyny i sprawdzamy czy jest pole coach i czy ma nazwę
                             if lineup['team']['id'] == team_id and lineup.get('coach') and lineup['coach'].get('name'):
                                 c_data = lineup['coach']
                                 coach = {
-                                    "id": c_data.get('id'),
-                                    "name": c_data.get('name'),
-                                    "firstname": c_data.get('name'), # Workaround dla HTML
-                                    "lastname": "",
-                                    "photo": c_data.get('photo')
+                                    "id": c_data.get('id'), "name": c_data.get('name'),
+                                    "firstname": c_data.get('name'), "lastname": "", "photo": c_data.get('photo')
                                 }
                                 coach_found = True
                                 break
-                except Exception as e:
-                    print(f"Błąd pobierania trenera z meczu {fixture_id}: {e}")
+                except Exception as e: print(f"Błąd pobierania trenera: {e}")
 
-        # Metoda B: Fallback do /coachs (jeśli nadal brak)
         if not coach_found:
             res_coach = requests.get(f"{BASE_URL}/coachs?team={team_id}", headers=headers).json()
-            if res_coach.get('response'):
-                coach = res_coach['response'][0]
+            if res_coach.get('response'): coach = res_coach['response'][0]
 
-        # 4. Skład
         res_squad = requests.get(f"{BASE_URL}/players/squads?team={team_id}", headers=headers).json()
         squad = res_squad['response'][0]['players'] if res_squad.get('response') else []
 
-        # Formatowanie
         def format_matches(match_list):
             formatted = []
             for m in match_list:
@@ -427,33 +484,75 @@ def get_team_profile_data(team_id):
                 goals = m['goals']
                 score = f"{goals['home']}-{goals['away']}" if goals['home'] is not None else "-:-"
                 formatted.append({
-                    "id": m["fixture"]["id"],
-                    "date": dt.strftime("%d.%m.%Y"),
-                    "time": dt.strftime("%H:%M"),
-                    "league": m["league"]["name"],
-                    "home": m["teams"]["home"]["name"],
-                    "home_logo": m["teams"]["home"]["logo"],
-                    "away": m["teams"]["away"]["name"],
-                    "away_logo": m["teams"]["away"]["logo"],
-                    "score": score,
+                    "id": m["fixture"]["id"], "date": dt.strftime("%d.%m.%Y"), "time": dt.strftime("%H:%M"),
+                    "league": m["league"]["name"], "home": m["teams"]["home"]["name"],
+                    "home_logo": m["teams"]["home"]["logo"], "away": m["teams"]["away"]["name"],
+                    "away_logo": m["teams"]["away"]["logo"], "score": score,
                     "is_finished": m["fixture"]["status"]["short"] in ['FT', 'AET', 'PEN']
                 })
             return formatted
 
         data = {
-            "info": team_info,
-            "venue": venue_info,
-            "coach": coach,
-            "squad": squad,
+            "info": team_info, "venue": venue_info, "coach": coach, "squad": squad,
             "last_matches": format_matches(last_matches_raw),
             "next_matches": format_matches(res_next.get('response', []))
         }
-
         TEAM_PROFILE_CACHE[team_id] = {'time': now, 'data': data}
         return jsonify(data)
-
     except Exception as e:
         print(f"Error fetching team data: {e}")
+        return jsonify({})
+
+# --- PLAYER PROFILE ROUTES ---
+
+@app.route('/player/<int:player_id>')
+def player_profile(player_id):
+    return render_template('player_profile.html', player_id=player_id)
+
+@app.route('/api/player-data/<int:player_id>')
+@app.route('/api/player-data/<int:player_id>')
+def get_player_data(player_id):
+    # Pobieramy sezon z parametrów URL (?season=2022), domyślnie bieżący
+    requested_season = request.args.get('season', default=get_current_season(), type=int)
+    
+    now = time.time()
+    # Klucz cache musi teraz zawierać ID gracza ORAZ sezon
+    cache_key = f"{player_id}_{requested_season}"
+    
+    if cache_key in PLAYER_CACHE and now - PLAYER_CACHE[cache_key]['time'] < 3600:
+        return jsonify(PLAYER_CACHE[cache_key]['data'])
+
+    try:
+        headers = HEADERS
+        # Używamy wybranego sezonu w zapytaniu do API
+        url_stats = f"{BASE_URL}/players?id={player_id}&season={requested_season}"
+        res_stats = requests.get(url_stats, headers=headers).json()
+        
+        player_info = {}
+        statistics = []
+        
+        if res_stats.get('response'):
+            data = res_stats['response'][0]
+            player_info = data['player']
+            statistics = data['statistics']
+
+        # Transfery są niezależne od sezonu (zawsze pobieramy całą historię)
+        url_transfers = f"{BASE_URL}/transfers?player={player_id}"
+        res_transfers = requests.get(url_transfers, headers=headers).json()
+        transfers = res_transfers['response'][0]['transfers'] if res_transfers.get('response') else []
+
+        result = {
+            "player": player_info,
+            "statistics": statistics,
+            "transfers": transfers,
+            "season": requested_season # Zwracamy też info, jaki to był sezon
+        }
+
+        PLAYER_CACHE[cache_key] = {'time': now, 'data': result}
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Error fetching player data: {e}")
         return jsonify({})
 
 if __name__ == "__main__":

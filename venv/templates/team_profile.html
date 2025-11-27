@@ -10,14 +10,7 @@
 </head>
 <body class="bg-gray-100 text-gray-800 pb-12">
 
-    <nav class="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-5xl mx-auto flex items-center">
-            <a href="javascript:history.back()" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center transition mr-4">
-                <span class="text-xl mr-1">⟵</span> Wróć
-            </a>
-            <span class="font-bold text-gray-700">Profil Klubu</span>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <div id="loading" class="text-center py-20">
         <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
@@ -153,12 +146,12 @@
         function renderSquad(squad) {
             const container = document.getElementById("squadContainer");
             if(!squad || squad.length === 0) {
-                container.innerHTML = '<div class="col-span-4 text-center text-gray-400 py-10">Brak składu.</div>'; return;
+                container.innerHTML = '<div class="col-span-4 text-center text-gray-400 py-10">Brak składu w bazie danych.</div>'; return;
             }
 
             const positions = { "Goalkeeper": "Bramkarze", "Defender": "Obrońcy", "Midfielder": "Pomocnicy", "Attacker": "Napastnicy" };
             
-            // Grupuj piłkarzy
+            // Grupuj piłkarzy według pozycji
             const grouped = { "Goalkeeper": [], "Defender": [], "Midfielder": [], "Attacker": [] };
             squad.forEach(p => { if(grouped[p.position]) grouped[p.position].push(p); });
 
@@ -170,10 +163,10 @@
                         <h3 class="font-bold text-gray-400 uppercase text-xs mb-4 tracking-wider border-b pb-2">${positions[posKey]}</h3>
                         <div class="space-y-3">
                             ${players.map(p => `
-                                <div class="flex items-center">
-                                    <img src="${p.photo}" class="w-8 h-8 rounded-full bg-gray-100 object-cover mr-3">
+                                <div onclick="window.location.href='/player/${p.id}'" class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition -mx-2 group">
+                                    <img src="${p.photo}" class="w-8 h-8 rounded-full bg-gray-100 object-cover mr-3 border border-transparent group-hover:border-blue-200 transition">
                                     <div>
-                                        <div class="font-bold text-sm text-gray-900">${p.name}</div>
+                                        <div class="font-bold text-sm text-gray-900 group-hover:text-blue-600 transition">${p.name}</div>
                                         <div class="text-xs text-blue-500">Nr ${p.number || '-'}</div>
                                     </div>
                                 </div>

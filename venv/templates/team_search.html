@@ -10,14 +10,7 @@
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-    <nav class="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-3xl mx-auto flex items-center">
-            <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center transition mr-4">
-                <span class="text-xl mr-1">⟵</span> Wróć
-            </a>
-            <span class="font-bold text-gray-700">Baza Klubów</span>
-        </div>
-    </nav>
+    {% include 'navbar.html' %}
 
     <div class="max-w-2xl mx-auto px-4 py-20 text-center">
         
@@ -38,10 +31,12 @@
 
         <div class="mt-12 flex flex-wrap justify-center gap-3 opacity-60">
             <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Popularne:</span>
-            <button onclick="goToTeam(131)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">FC Barcelona</button>
-            <button onclick="goToTeam(529)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">FC Barcelona (Kobiety)</button> <button onclick="goToTeam(541)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Real Madrid</button>
+            
+            <button onclick="goToTeam(529)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">FC Barcelona</button>
+            <button onclick="goToTeam(541)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Real Madrid</button>
             <button onclick="goToTeam(42)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Arsenal</button>
             <button onclick="goToTeam(49)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Chelsea</button>
+            <button onclick="goToTeam(33)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Manchester Utd</button>
         </div>
 
     </div>

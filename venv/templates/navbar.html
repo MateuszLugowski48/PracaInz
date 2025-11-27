@@ -1,0 +1,54 @@
+<nav class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            
+            <div class="flex">
+                <a href="/" class="flex-shrink-0 flex items-center group">
+                    <span class="text-2xl mr-2 group-hover:scale-110 transition">⚽</span>
+                    <span class="font-black text-xl tracking-tighter text-gray-900">Football<span class="text-blue-600">Hub</span></span>
+                </a>
+                
+                <div class="hidden lg:ml-10 lg:flex lg:space-x-8">
+                    <a href="/" class="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium transition">
+                        Live
+                    </a>
+                    <a href="/standings-page" class="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium transition">
+                        Tabele
+                    </a>
+                    <a href="/team-search" class="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium transition">
+                        Kluby
+                    </a>
+                    <a href="/player-search" class="text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-blue-500 text-sm font-medium transition">
+                        Piłkarze
+                    </a>
+                    
+                    <div class="relative flex items-center group">
+                        <button class="text-gray-500 hover:text-blue-600 inline-flex items-center px-1 pt-1 text-sm font-medium transition">
+                            Analiza ▾
+                        </button>
+                        <div class="absolute top-12 left-0 w-48 bg-white border border-gray-100 shadow-xl rounded-xl py-2 hidden group-hover:block animate-fade-in">
+                            <a href="/head-to-head" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">H2H (Kluby)</a>
+                            <a href="/player-h2h" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">H2H (Gracze)</a>
+                            <a href="/form-tracker-page" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600">Tracker Formy</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center lg:hidden">
+                <a href="/" class="text-gray-500 hover:text-blue-600 font-medium text-sm">Strona Główna</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 flex justify-around py-3 text-xs font-bold text-gray-500 z-50 pb-safe">
+        <a href="/" class="flex flex-col items-center hover:text-blue-600"><span>🔴</span> Live</a>
+        <a href="/team-search" class="flex flex-col items-center hover:text-blue-600"><span>🛡️</span> Kluby</a>
+        <a href="/player-search" class="flex flex-col items-center hover:text-blue-600"><span>👤</span> Gracze</a>
+        <a href="/standings-page" class="flex flex-col items-center hover:text-blue-600"><span>📊</span> Tabele</a>
+    </div>
+</nav>
+
+<style>
+    @media (max-width: 1024px) { body { padding-bottom: 80px; } }
+</style>

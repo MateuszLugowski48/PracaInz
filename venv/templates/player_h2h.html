@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>Porównanie Piłkarzy H2H</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+
+    {% include 'navbar.html' %}
+
+    <div class="max-w-6xl mx-auto px-4 mt-8">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 relative">
+                <h3 class="text-xs font-bold text-blue-500 uppercase mb-2">Zawodnik 1</h3>
+                <input type="text" id="search1" onkeyup="searchPlayer(1)" placeholder="Szukaj..." class="w-full border-b border-gray-200 py-2 focus:outline-none focus:border-blue-500 font-bold mb-4">
+                <div id="results1" class="absolute left-0 right-0 bg-white shadow-xl z-20 rounded-xl hidden max-h-60 overflow-y-auto border border-gray-100 mx-6"></div>
+                
+                <div id="p1-card" class="hidden text-center animate-fade-in">
+                    <img id="p1-img" class="w-24 h-24 rounded-full mx-auto mb-3 object-cover border-4 border-blue-50">
+                    <h2 id="p1-name" class="text-xl font-black text-gray-900"></h2>
+                    <p id="p1-team" class="text-sm text-gray-500"></p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-red-100 relative">
+                <h3 class="text-xs font-bold text-red-500 uppercase mb-2">Zawodnik 2</h3>
+                <input type="text" id="search2" onkeyup="searchPlayer(2)" placeholder="Szukaj..." class="w-full border-b border-gray-200 py-2 focus:outline-none focus:border-red-500 font-bold mb-4">
+                <div id="results2" class="absolute left-0 right-0 bg-white shadow-xl z-20 rounded-xl hidden max-h-60 overflow-y-auto border border-gray-100 mx-6"></div>
+                
+                <div id="p2-card" class="hidden text-center animate-fade-in">
+                    <img id="p2-img" class="w-24 h-24 rounded-full mx-auto mb-3 object-cover border-4 border-red-50">
+                    <h2 id="p2-name" class="text-xl font-black text-gray-900"></h2>
+                    <p id="p2-team" class="text-sm text-gray-500"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-center mb-12 space-y-4">
+            <div class="w-64">
+                <label class="block text-xs font-bold text-gray-400 uppercase text-center mb-2">Wybierz Sezon</label>
+                <select id="seasonSelect" onchange="handleSeasonChange()" class="block w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 text-center shadow-sm">
+                    </select>
+            </div>
+
+            <button id="compareBtn" onclick="compare()" disabled class="bg-gray-300 text-white font-bold py-3 px-12 rounded-full shadow-lg transition transform scale-95 cursor-not-allowed">
+                PORÓWNAJ
+            </button>
+        </div>
+
+        <div id="comparisonResult" class="hidden grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            <div class="md:col-span-1 bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-center">
+                <table class="w-full text-sm">
+                    <tbody class="divide-y divide-gray-100">
+                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-age"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Wiek</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-age"></td></tr>
+                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-matches"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Mecze</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-matches"></td></tr>
+                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-goals"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Gole</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-goals"></td></tr>
+                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-assists"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Asysty</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-assists"></td></tr>
+                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-rating"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Ocena</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-rating"></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="md:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-200 p-6">
+                <h4 class="text-center text-gray-400 text-xs font-bold uppercase mb-4">Statystyki Łączne (Wszystkie Rozgrywki)</h4>
+                <div class="h-72 w-full">
+                    <canvas id="compareChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let p1 = null, p2 = null;
+        let chart = null;
+        let timeouts = {};
+
+        function initSeasons() {
+            const select = document.getElementById("seasonSelect");
+            const currentYear = 2025; 
+            const minYear = 2020;
+            
+            for(let y = currentYear; y >= minYear; y--) {
+                const opt = document.createElement("option");
+                opt.value = y;
+                opt.text = `Sezon ${y}/${y+1}`;
+                select.appendChild(opt);
+            }
+        }
+
+        function handleSeasonChange() {
+            // Jeśli wyniki są już widoczne, odśwież je automatycznie po zmianie sezonu
+            if (!document.getElementById("comparisonResult").classList.contains("hidden") && p1 && p2) {
+                compare();
+            }
+        }
+
+        function searchPlayer(num) {
+            clearTimeout(timeouts[num]);
+            const q = document.getElementById(`search${num}`).value;
+            const resDiv = document.getElementById(`results${num}`);
+            
+            if(q.length < 3) { resDiv.classList.add('hidden'); return; }
+
+            timeouts[num] = setTimeout(async () => {
+                const res = await fetch(`/search-players?q=${q}`);
+                const data = await res.json();
+                resDiv.innerHTML = "";
+                
+                if(data.length > 0) {
+                    resDiv.classList.remove('hidden');
+                    data.forEach(p => {
+                        const d = document.createElement('div');
+                        d.className = "flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 transition";
+                        d.onclick = () => selectPlayer(num, p);
+                        d.innerHTML = `<img src="${p.photo}" class="w-8 h-8 rounded-full mr-3 object-cover"><div class="text-sm font-bold text-gray-800">${p.name}<br><span class="text-xs text-gray-400 font-normal">${p.team}</span></div>`;
+                        resDiv.appendChild(d);
+                    });
+                }
+            }, 300);
+        }
+
+        function selectPlayer(num, player) {
+            if(num === 1) p1 = player; else p2 = player;
+            
+            document.getElementById(`results${num}`).classList.add("hidden");
+            document.getElementById(`search${num}`).value = "";
+            document.getElementById(`p${num}-card`).classList.remove("hidden");
+            document.getElementById(`p${num}-name`).textContent = player.name;
+            document.getElementById(`p${num}-team`).textContent = player.team;
+            document.getElementById(`p${num}-img`).src = player.photo;
+
+            if(p1 && p2) {
+                const btn = document.getElementById("compareBtn");
+                btn.disabled = false;
+                btn.classList.remove("bg-gray-300", "cursor-not-allowed", "scale-95");
+                btn.classList.add("bg-gradient-to-r", "from-blue-600", "to-red-600", "cursor-pointer", "transform", "hover:scale-105", "shadow-xl");
+            }
+        }
+
+        function aggregateStats(statsList) {
+            let total = {
+                games: { appearences: 0, rating: 0 },
+                goals: { total: 0, assists: 0 },
+                cards: { yellow: 0 }
+            };
+
+            let ratingSum = 0;
+            let ratingCount = 0;
+
+            if (!statsList) return total;
+
+            statsList.forEach(s => {
+                total.games.appearences += (s.games.appearences || 0);
+                total.goals.total += (s.goals.total || 0);
+                total.goals.assists += (s.goals.assists || 0);
+                total.cards.yellow += (s.cards.yellow || 0);
+
+                if (s.games.rating) {
+                    let weight = s.games.appearences || 1; 
+                    ratingSum += (parseFloat(s.games.rating) * weight);
+                    ratingCount += weight;
+                }
+            });
+
+            if (ratingCount > 0) {
+                total.games.rating = (ratingSum / ratingCount).toFixed(2);
+            } else {
+                total.games.rating = "-";
+            }
+            return total;
+        }
+
+        async function compare() {
+            if(!p1 || !p2) return;
+            
+            const season = document.getElementById("seasonSelect").value;
+            const btn = document.getElementById("compareBtn");
+            const originalText = btn.textContent;
+            
+            btn.textContent = "POBIERANIE DANYCH...";
+            btn.disabled = true;
+            btn.classList.add("opacity-75");
+            
+            try {
+                // Dodano ?season=... do zapytań
+                const [d1, d2] = await Promise.all([
+                    fetch(`/api/player-data/${p1.id}?season=${season}`).then(r => r.json()),
+                    fetch(`/api/player-data/${p2.id}?season=${season}`).then(r => r.json())
+                ]);
+
+                const s1 = aggregateStats(d1.statistics);
+                const s2 = aggregateStats(d2.statistics);
+
+                // Wiek jest stały, ale można go pominąć w statystykach historycznych lub zostawić jako info
+                document.getElementById("t1-age").textContent = d1.player.age || "-";
+                document.getElementById("t2-age").textContent = d2.player.age || "-";
+                
+                fillRow("matches", s1.games.appearences, s2.games.appearences);
+                fillRow("goals", s1.goals.total, s2.goals.total);
+                fillRow("assists", s1.goals.assists, s2.goals.assists);
+                fillRow("rating", s1.games.rating, s2.games.rating);
+
+                document.getElementById("comparisonResult").classList.remove("hidden");
+                
+                // Przewiń do wyników
+                document.getElementById("comparisonResult").scrollIntoView({behavior: 'smooth', block: 'nearest'});
+
+                renderChart(p1.name, s1, p2.name, s2);
+            } catch (e) {
+                console.error(e);
+                alert("Wystąpił błąd podczas pobierania danych.");
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+                btn.classList.remove("opacity-75");
+            }
+        }
+
+        function fillRow(id, v1, v2) {
+            const el1 = document.getElementById(`t1-${id}`);
+            const el2 = document.getElementById(`t2-${id}`);
+            el1.textContent = v1;
+            el2.textContent = v2;
+
+            // Proste kolorowanie (kto lepszy)
+            // Reset
+            el1.className = "p-4 text-center font-bold text-blue-600 text-lg";
+            el2.className = "p-4 text-center font-bold text-red-600 text-lg";
+
+            const val1 = parseFloat(v1) || 0;
+            const val2 = parseFloat(v2) || 0;
+
+            if (val1 > val2) {
+                el1.classList.add("bg-blue-50", "rounded-l-xl");
+            } else if (val2 > val1) {
+                el2.classList.add("bg-red-50", "rounded-r-xl");
+            }
+        }
+
+        function renderChart(n1, s1, n2, s2) {
+            const ctx = document.getElementById('compareChart').getContext('2d');
+            if(chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Gole', 'Asysty', 'Mecze', 'Żółte Kartki'],
+                    datasets: [
+                        { 
+                            label: n1, 
+                            data: [s1.goals.total||0, s1.goals.assists||0, s1.games.appearences||0, s1.cards.yellow||0], 
+                            backgroundColor: 'rgba(37, 99, 235, 0.8)', 
+                            borderColor: '#2563eb',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        },
+                        { 
+                            label: n2, 
+                            data: [s2.goals.total||0, s2.goals.assists||0, s2.games.appearences||0, s2.cards.yellow||0], 
+                            backgroundColor: 'rgba(220, 38, 38, 0.8)', 
+                            borderColor: '#dc2626',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { borderDash: [2, 2] } 
+                        }, 
+                        x: { 
+                            grid: { display: false } 
+                        } 
+                    }
+                }
+            });
+        }
+
+        initSeasons();
+    </script>
+</body>
+</html>

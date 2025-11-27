@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>Szukaj Zawodnika</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    {% include 'navbar.html' %}
+
+    <div class="max-w-2xl mx-auto px-4 py-20 text-center">
+        
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Znajdź piłkarza</h1>
+        <p class="text-gray-500 mb-8">Wpisz nazwisko, aby sprawdzić statystyki i historię transferów.</p>
+
+        <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <span class="text-gray-400 text-xl">👤</span>
+            </div>
+            <input type="text" id="searchInput" 
+                   class="block w-full pl-12 pr-4 py-4 border border-gray-300 rounded-2xl text-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                   placeholder="Np. Lewandowski, Mbappe, Salah..." 
+                   onkeyup="handleSearch()" autocomplete="off" autofocus>
+            
+            <div id="searchResults" class="absolute w-full bg-white mt-2 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 hidden text-left divide-y divide-gray-50"></div>
+        </div>
+
+    </div>
+
+    <script>
+        let searchTimeout = null;
+
+        function handleSearch() {
+            clearTimeout(searchTimeout);
+            const query = document.getElementById("searchInput").value;
+            const resultsDiv = document.getElementById("searchResults");
+
+            if (query.length < 3) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/search-players?q=${query}`);
+                    const players = await res.json();
+                    
+                    resultsDiv.innerHTML = '';
+                    if(players.length > 0) {
+                        resultsDiv.classList.remove('hidden');
+                        players.forEach(p => {
+                            const div = document.createElement('div');
+                            div.className = 'flex items-center px-6 py-4 hover:bg-blue-50 cursor-pointer transition duration-150 group';
+                            div.onclick = () => window.location.href = `/player/${p.id}`;
+                            div.innerHTML = `
+                                <img src="${p.photo}" class="w-10 h-10 rounded-full object-cover mr-4 border border-gray-200">
+                                <div>
+                                    <div class="text-base font-bold text-gray-900 group-hover:text-blue-700">${p.name}</div>
+                                    <div class="text-xs text-gray-500">${p.team} • ${p.nationality}</div>
+                                </div>
+                                <div class="ml-auto text-gray-300 text-xl group-hover:text-blue-400">➔</div>
+                            `;
+                            resultsDiv.appendChild(div);
+                        });
+                    } else {
+                        resultsDiv.classList.add('hidden');
+                    }
+                } catch (e) { console.error(e); }
+            }, 300);
+        }
+    </script>
+</body>
+</html>
