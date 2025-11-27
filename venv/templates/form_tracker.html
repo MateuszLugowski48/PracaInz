@@ -160,7 +160,13 @@
             document.getElementById("loading").classList.remove('hidden');
             document.getElementById("content").classList.add('hidden');
 
-            document.getElementById("teamName").textContent = team.name;
+            // ZMIANA TUTAJ: Dodano przycisk (link) do profilu obok nazwy
+            document.getElementById("teamName").innerHTML = `
+                ${team.name} 
+                <a href="/team/${team.id}" class="ml-4 text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full text-gray-700 transition no-underline">
+                    Zobacz Pełny Profil ⮕
+                </a>`;
+            
             document.getElementById("teamLogo").src = team.logo;
 
             try {
@@ -290,7 +296,8 @@
             
             data.table_matches.forEach(m => {
                 const tr = document.createElement("tr");
-                tr.className = "hover:bg-gray-50 transition duration-150";
+                tr.className = "hover:bg-gray-50 transition duration-150 cursor-pointer"; // Dodaj cursor-pointer
+                tr.onclick = () => window.location.href = `/match/${m.id}`
 
                 let badgeClass = m.points === 3 ? "bg-green-100 text-green-800" : (m.points === 1 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800");
                 let badgeText = m.points === 3 ? "W" : (m.points === 1 ? "R" : "P");

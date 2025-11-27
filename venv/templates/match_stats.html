@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>Szczegóły Meczu</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+    <nav class="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-4xl mx-auto flex items-center">
+            <a href="javascript:history.back()" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center transition mr-4">
+                <span class="text-xl mr-1">⟵</span> Wróć
+            </a>
+            <span class="font-bold text-gray-700 text-sm uppercase tracking-wider" id="leagueHeader">Ładowanie...</span>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-4 mt-6">
+        
+       <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-6 mb-6 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-red-500"></div>
+            
+            <div class="flex justify-between items-center text-center">
+                <div id="homeTeamClick" class="cursor-pointer hover:opacity-80 transition flex-1 flex flex-col items-center">
+                    <img id="homeLogo" class="w-16 h-16 object-contain mb-3">
+                    <h2 id="homeName" class="font-bold text-lg leading-tight"></h2>
+                </div>
+
+                <div class="px-4">
+                    <div id="matchStatus" class="text-xs font-bold text-gray-400 uppercase mb-1 tracking-widest"></div>
+                    <div class="text-4xl font-black text-gray-900 tracking-tighter mb-1">
+                        <span id="scoreHome">-</span> : <span id="scoreAway">-</span>
+                    </div>
+                    <div id="matchTime" class="text-sm text-blue-600 font-mono font-medium"></div>
+                </div>
+
+                <div id="awayTeamClick" class="cursor-pointer hover:opacity-80 transition flex-1 flex flex-col items-center">
+                    <img id="awayLogo" class="w-16 h-16 object-contain mb-3">
+                    <h2 id="awayName" class="font-bold text-lg leading-tight"></h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex space-x-2 mb-6 bg-white p-1 rounded-xl shadow-sm border border-gray-200 w-fit mx-auto">
+            <button onclick="setTab('stats')" id="btn-stats" class="px-6 py-2 rounded-lg text-sm font-bold transition bg-blue-600 text-white">Statystyki</button>
+            <button onclick="setTab('lineups')" id="btn-lineups" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition">Składy</button>
+            <button onclick="setTab('events')" id="btn-events" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition">Zdarzenia</button>
+        </div>
+
+        <div id="tab-stats" class="space-y-4 animate-fade-in">
+            <div id="statsContainer" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <p class="text-center text-gray-400 italic">Ładowanie statystyk...</p>
+            </div>
+        </div>
+
+        <div id="tab-lineups" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                <h3 class="font-bold text-gray-900 mb-4 border-b pb-2" id="homeLineupHeader">Gospodarze</h3>
+                <div id="homeLineupList" class="space-y-2 text-sm"></div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                <h3 class="font-bold text-gray-900 mb-4 border-b pb-2" id="awayLineupHeader">Goście</h3>
+                <div id="awayLineupList" class="space-y-2 text-sm"></div>
+            </div>
+        </div>
+
+        <div id="tab-events" class="hidden animate-fade-in">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div id="eventsTimeline" class="relative border-l-2 border-gray-100 ml-4 space-y-6"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const fixtureId = Number("{{ fixture_id }}");
+
+        async function loadMatch() {
+            try {
+                const res = await fetch(`/api/match-details/${fixtureId}`);
+                const data = await res.json();
+                
+                if(!data || !data.teams) return;
+
+                renderHeader(data);
+                renderStats(data);
+                renderLineups(data);
+                renderEvents(data);
+
+            } catch(e) { console.error(e); }
+        }
+
+        function renderHeader(d) {
+            document.getElementById("leagueHeader").textContent = `${d.league.name} • ${d.league.round || ''}`;
+            
+            // Wypełnianie danych
+            document.getElementById("homeName").textContent = d.teams.home.name;
+            document.getElementById("homeLogo").src = d.teams.home.logo;
+            document.getElementById("awayName").textContent = d.teams.away.name;
+            document.getElementById("awayLogo").src = d.teams.away.logo;
+
+            document.getElementById("scoreHome").textContent = d.goals.home ?? 0;
+            document.getElementById("scoreAway").textContent = d.goals.away ?? 0;
+            document.getElementById("matchStatus").textContent = d.fixture.status.long;
+            document.getElementById("matchTime").textContent = d.fixture.status.elapsed ? `${d.fixture.status.elapsed}'` : new Date(d.fixture.date).toLocaleDateString();
+
+            // Obsługa kliknięcia w drużynę
+            document.getElementById("homeTeamClick").onclick = () => window.location.href = `/team/${d.teams.home.id}`;
+            document.getElementById("awayTeamClick").onclick = () => window.location.href = `/team/${d.teams.away.id}`;
+        }
+
+        function renderStats(d) {
+            const container = document.getElementById("statsContainer");
+            if(!d.statistics || d.statistics.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400">Brak danych statystycznych.</p>';
+                return;
+            }
+
+            const statsMap = {};
+            // Scalanie statystyk z dwóch tablic (home/away)
+            d.statistics.forEach(teamStats => {
+                const isHome = teamStats.team.id === d.teams.home.id;
+                teamStats.statistics.forEach(s => {
+                    if(!statsMap[s.type]) statsMap[s.type] = { home: 0, away: 0, name: s.type };
+                    if(isHome) statsMap[s.type].home = s.value ?? 0;
+                    else statsMap[s.type].away = s.value ?? 0;
+                });
+            });
+
+            // Tłumaczenie kluczowych statystyk
+            const translation = {
+                "Ball Possession": "Posiadanie piłki", "Shots on Goal": "Strzały celne",
+                "Shots off Goal": "Strzały niecelne", "Total Shots": "Wszystkie strzały",
+                "Corner Kicks": "Rzuty rożne", "Fouls": "Faule", "Yellow Cards": "Żółte kartki",
+                "Red Cards": "Czerwone kartki", "Goalkeeper Saves": "Parady bramkarza", "Passes %": "Celność podań"
+            };
+
+            let html = "";
+            for (const [key, stat] of Object.entries(statsMap)) {
+                const total = (parseFloat(String(stat.home).replace('%','')) || 0) + (parseFloat(String(stat.away).replace('%','')) || 0);
+                let hPerc = 50, aPerc = 50;
+                
+                if(total > 0) {
+                    hPerc = ((parseFloat(String(stat.home).replace('%','')) || 0) / total) * 100;
+                    aPerc = 100 - hPerc;
+                }
+
+                const name = translation[key] || key;
+                
+                html += `
+                    <div class="mb-5 last:mb-0">
+                        <div class="flex justify-between text-xs font-bold text-gray-500 uppercase mb-1">
+                            <span>${stat.home}</span>
+                            <span>${name}</span>
+                            <span>${stat.away}</span>
+                        </div>
+                        <div class="flex h-2.5 rounded-full overflow-hidden bg-gray-100">
+                            <div class="bg-blue-500 h-full" style="width: ${hPerc}%"></div>
+                            <div class="bg-red-500 h-full" style="width: ${aPerc}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderLineups(d) {
+            if(!d.lineups || d.lineups.length === 0) {
+                document.getElementById("tab-lineups").innerHTML = '<div class="p-6 text-center text-gray-400 w-full">Składy niedostępne.</div>';
+                return;
+            }
+            
+            d.lineups.forEach(l => {
+                const isHome = l.team.id === d.teams.home.id;
+                const headerId = isHome ? "homeLineupHeader" : "awayLineupHeader";
+                const listId = isHome ? "homeLineupList" : "awayLineupList";
+                
+                document.getElementById(headerId).innerHTML = `${l.team.name} <span class="text-xs font-normal text-gray-500 ml-2">(${l.formation})</span>`;
+                
+                const list = document.getElementById(listId);
+                list.innerHTML = `
+                    <div class="text-xs font-bold text-gray-400 uppercase mt-2 mb-1">Wyjściowa 11</div>
+                    ${l.startXI.map(p => `<div class="flex items-center py-1"><span class="w-6 text-gray-400 text-xs text-right mr-3">${p.player.number}</span><span>${p.player.name}</span></div>`).join('')}
+                    <div class="text-xs font-bold text-gray-400 uppercase mt-4 mb-1">Rezerwowi</div>
+                    ${l.substitutes.map(p => `<div class="flex items-center py-1 text-gray-500"><span class="w-6 text-gray-300 text-xs text-right mr-3">${p.player.number}</span><span>${p.player.name}</span></div>`).join('')}
+                    <div class="text-xs font-bold text-gray-400 uppercase mt-4 mb-1">Trener</div>
+                    <div class="py-1 font-semibold">${l.coach.name}</div>
+                `;
+            });
+        }
+
+        function renderEvents(d) {
+            const tl = document.getElementById("eventsTimeline");
+            if(!d.events || d.events.length === 0) {
+                tl.innerHTML = '<p class="text-gray-400 italic">Brak zdarzeń.</p>'; return;
+            }
+
+            let html = "";
+            d.events.forEach(e => {
+                const isHome = e.team.id === d.teams.home.id;
+                const sideClass = isHome ? "text-left" : "text-right";
+                const alignClass = isHome ? "items-start" : "items-end";
+                
+                let icon = "⚽";
+                if(e.type === "Card") icon = e.detail === "Yellow Card" ? "🟨" : "🟥";
+                if(e.type === "subst") icon = "🔄";
+                if(e.type === "Var") icon = "📺";
+
+                html += `
+                    <div class="mb-6 ml-6 relative group">
+                        <span class="absolute -left-10 top-0 w-8 h-8 rounded-full bg-white border-2 border-blue-100 flex items-center justify-center font-bold text-xs text-blue-600 z-10">${e.time.elapsed}'</span>
+                        <div class="flex flex-col ${alignClass}">
+                            <div class="bg-white p-3 rounded-lg border border-gray-100 shadow-sm max-w-xs w-full">
+                                <div class="flex items-center mb-1 ${isHome ? '' : 'flex-row-reverse'}">
+                                    <span class="text-lg mx-2">${icon}</span>
+                                    <span class="font-bold text-sm text-gray-900">${e.player.name}</span>
+                                </div>
+                                <div class="text-xs text-gray-500 px-2 ${sideClass}">
+                                    ${e.type === 'subst' ? `Zmienia: ${e.assist.name}` : e.detail}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            tl.innerHTML = html;
+        }
+
+        function setTab(tabName) {
+            ['stats', 'lineups', 'events'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`btn-${t}`);
+                btn.className = "px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition";
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`btn-${tabName}`).className = "px-6 py-2 rounded-lg text-sm font-bold transition bg-blue-600 text-white shadow-md";
+        }
+
+        loadMatch();
+    </script>
+</body>
+</html>

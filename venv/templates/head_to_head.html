@@ -280,7 +280,8 @@
 
             matches.forEach(m => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-50 transition";
+                tr.className = "hover:bg-gray-50 transition cursor-pointer"; // Dodaj cursor-pointer
+                tr.onclick = () => window.location.href = `/match/${m.id}`;
                 
                 // Stylizacja zwycięzcy
                 const homeClass = m.winner === "home" ? "font-bold text-gray-900" : "text-gray-500";

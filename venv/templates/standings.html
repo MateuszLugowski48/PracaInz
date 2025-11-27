@@ -193,8 +193,16 @@
 
         function init() {
             const s = document.getElementById("seasonSelect");
+            
+            const maxYear = 2025; 
+            const minYear = 2020;
+            
+            const seasons = [];
+            for (let y = maxYear; y >= minYear; y--) { 
+                seasons.push(y); 
+            }
             seasons.forEach(y => s.add(new Option(`${y}/${y+1}`, y)));
-            s.value = seasons.includes(2024) ? 2024 : seasons[0];
+            s.value = 2025;
         }
 
         // --- LOGIKA KOLORÓW (Poprawiona) ---
@@ -264,7 +272,18 @@
                         else if (leagueName.includes("europa league")) styleClass = getStyleForEL(r.rank, r.description, rows.length);
                         else if (leagueName.includes("conference league")) styleClass = getStyleForUECL(r.rank, r.description, rows.length);
                         else styleClass = getStyleForDomestic(r.rank, r.description, rows.length);
-                        return `<tr class="hover:bg-gray-50 transition group search-row" data-team="${r.team.toLowerCase()}"><td class="px-4 py-4 text-center font-bold text-gray-600 ${styleClass}">${r.rank}</td><td class="px-4 py-4 flex items-center"><div class="w-8 h-8 mr-4 flex-shrink-0 flex items-center justify-center bg-white p-0.5 rounded-full shadow-sm border border-gray-100"><img src="${r.logo}" class="w-full h-full object-contain"></div><span class="font-semibold text-gray-900">${r.team}</span></td><td class="px-4 py-4 text-center">${r.played}</td><td class="px-4 py-4 text-center font-bold bg-gray-50">${r.points}</td><td class="px-4 py-3 text-center hidden sm:table-cell text-sm text-gray-500">${r.goalsDiff}</td></tr>`;
+                        
+                        // ZMIANA PONIŻEJ: Dodano onclick do span z nazwą drużyny (event.stopPropagation zapobiega konfliktom)
+                        return `<tr class="hover:bg-gray-50 transition group search-row" data-team="${r.team.toLowerCase()}">
+                            <td class="px-4 py-4 text-center font-bold text-gray-600 ${styleClass}">${r.rank}</td>
+                            <td class="px-4 py-4 flex items-center">
+                                <div class="w-8 h-8 mr-4 flex-shrink-0 flex items-center justify-center bg-white p-0.5 rounded-full shadow-sm border border-gray-100"><img src="${r.logo}" class="w-full h-full object-contain"></div>
+                                <span onclick="event.stopPropagation(); window.location.href='/team/${r.team_id}'" class="font-semibold text-gray-900 cursor-pointer hover:text-blue-600 hover:underline">${r.team}</span>
+                            </td>
+                            <td class="px-4 py-4 text-center">${r.played}</td>
+                            <td class="px-4 py-4 text-center font-bold bg-gray-50">${r.points}</td>
+                            <td class="px-4 py-3 text-center hidden sm:table-cell text-sm text-gray-500">${r.goalsDiff}</td>
+                        </tr>`;
                     }).join("");
                     tableWrapper.innerHTML = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-100"><tr><th class="px-4 py-3 w-16 text-center">#</th><th class="px-4 py-3 text-left">Drużyna</th><th class="px-4 py-3 w-16 text-center">M</th><th class="px-4 py-3 w-16 text-center">Pkt</th><th class="px-4 py-3 w-16 text-center hidden sm:table-cell">+/-</th></tr></thead><tbody class="divide-y divide-gray-100">${rowsHtml}</tbody></table>`;
                     c.appendChild(tableWrapper);
@@ -302,7 +321,7 @@
                 listRounds.sort().reverse();
                 listRounds.forEach(round => {
                     let html = `<div class="bg-white rounded-xl border mb-4 overflow-hidden"><div class="bg-gray-100 px-4 py-3 font-bold text-sm text-gray-700 uppercase">${translate(round)}</div><div class="divide-y divide-gray-100">`;
-                    html += groups[round].map(m => `<div class="flex items-center p-4 hover:bg-gray-50 search-row" data-team="${m.home.toLowerCase()} ${m.away.toLowerCase()}"><div class="text-xs text-gray-400 w-24 font-mono">${m.date}</div><div class="flex-1 flex justify-between items-center"><div class="flex items-center w-5/12 justify-end"><span class="mr-3 text-sm font-medium text-right truncate">${m.home}</span><img src="${m.home_logo}" class="w-8 h-8 object-contain"></div><div class="font-bold bg-gray-100 px-3 py-1.5 rounded-lg text-sm mx-2 min-w-[60px] text-center">${m.score}</div><div class="flex items-center w-5/12"><img src="${m.away_logo}" class="w-8 h-8 object-contain ml-3 mr-3"><span class="text-sm font-medium text-left truncate">${m.away}</span></div></div></div>`).join("");
+                    html += groups[round].map(m => `<div onclick="window.location.href='/match/${m.id}'" class="cursor-pointer flex items-center p-4 hover:bg-blue-50 search-row transition" data-team="${m.home.toLowerCase()} ${m.away.toLowerCase()}"><div class="text-xs text-gray-400 w-24 font-mono">${m.date}</div><div class="flex-1 flex justify-between items-center"><div class="flex items-center w-5/12 justify-end"><span class="mr-3 text-sm font-medium text-right truncate">${m.home}</span><img src="${m.home_logo}" class="w-8 h-8 object-contain"></div><div class="font-bold bg-gray-100 px-3 py-1.5 rounded-lg text-sm mx-2 min-w-[60px] text-center">${m.score}</div><div class="flex items-center w-5/12"><img src="${m.away_logo}" class="w-8 h-8 object-contain ml-3 mr-3"><span class="text-sm font-medium text-left truncate">${m.away}</span></div></div></div>`).join("");
                     html += `</div></div>`;
                     resCont.innerHTML += html;
                 });
@@ -447,10 +466,12 @@
             let t1, t1_logo, t1_id, t2, t2_logo, t2_id, mainScore, subText, winnerId = tie.winner_id;
 
             if(tie.isTie) {
+                // Logika dla dwumeczów (np. 1/8 finału)
                 t1=tie.team1; t1_logo=tie.team1_logo; t1_id=tie.team1_id; t2=tie.team2; t2_logo=tie.team2_logo; t2_id=tie.team2_id;
                 mainScore=tie.aggregate; subText = `(${tie.subscores})`;
                 if(tie.penaltyInfo) subText += ` <span class="text-red-500 font-bold">k. ${tie.penaltyInfo}</span>`;
             } else {
+                // Logika dla pojedynczych meczów (np. Finał)
                 t1=tie.home; t1_logo=tie.home_logo; t1_id=tie.home_id; t2=tie.away; t2_logo=tie.away_logo; t2_id=tie.away_id;
                 mainScore=tie.score; subText = tie.date;
                 if(tie.penalty) subText += ` <span class="text-red-500 font-bold">k. ${tie.penalty}</span>`;
@@ -466,6 +487,12 @@
 
             card.className = `match-card ${extraStyle} flex flex-col justify-center`;
             card.setAttribute("data-team", `${t1} ${t2}`.toLowerCase());
+            
+            // Opcjonalnie: Jeśli to NIE jest dwumecz (tylko pojedyncze spotkanie), dodajemy link
+            // if (!tie.isTie) {
+            //    card.style.cursor = "pointer";
+            //    card.onclick = () => window.location.href = `/match/${tie.id}`;
+            // }
             
             card.innerHTML = `
                 <div class="text-[10px] text-gray-400 text-center mb-2 tracking-tight uppercase font-bold">${translate(round)}</div>

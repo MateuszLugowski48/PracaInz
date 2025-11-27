@@ -9,18 +9,21 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .animate-ping-slow { animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         
         <div class="text-center mb-12">
             <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl mb-4">Football Data Hub</h1>
             <p class="text-lg text-gray-500">Wyniki na żywo, statystyki i analiza formy w jednym miejscu.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            
             <a href="/standings-page" class="block p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition duration-200 group">
                 <div class="flex items-center mb-2">
                     <span class="bg-blue-100 text-blue-600 p-2 rounded-lg mr-3 group-hover:bg-blue-600 group-hover:text-white transition">📊</span>
@@ -44,6 +47,14 @@
                 </div>
                 <p class="text-gray-500 text-sm">Analiza bezpośrednia, statystyki wygranych i historia spotkań.</p>
             </a>
+
+            <a href="/team-search" class="block p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-red-300 transition duration-200 group">
+                <div class="flex items-center mb-2">
+                    <span class="bg-red-100 text-red-600 p-2 rounded-lg mr-3 group-hover:bg-red-600 group-hover:text-white transition">🛡️</span>
+                    <h3 class="text-lg font-bold text-gray-900">Znajdź Klub</h3>
+                </div>
+                <p class="text-gray-500 text-sm">Zobacz kadrę, trenera, stadion i terminarz drużyny.</p>
+            </a>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -58,7 +69,7 @@
                             </span>
                             <h2 class="text-lg font-bold text-gray-900">Wyniki na żywo</h2>
                         </div>
-                        <span class="text-xs text-gray-400 font-mono">Auto-refresh</span>
+                        <span class="text-xs text-gray-400 font-mono">Auto-refresh (10s)</span>
                     </div>
                     
                     <div class="overflow-x-auto">
@@ -107,12 +118,17 @@
 
                 data.forEach(match => {
                     const row = document.createElement("tr");
+                    
+                    // Stylizacja i link do szczegółów meczu
+                    row.className = "cursor-pointer hover:bg-blue-50 transition duration-150 group";
+                    row.onclick = () => window.location.href = `/match/${match.id}`; // Linkowanie po ID
+
                     let statusColor = match.status.includes("Half") ? "text-orange-500" : "text-green-600";
                     let minute = match.minute ? `<span class="text-red-500 font-bold ml-1">'${match.minute}</span>` : "";
                     
                     row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${match.home}</td>
-                        <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${match.away}</td>
+                        <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900 group-hover:text-blue-700">${match.home}</td>
+                        <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900 group-hover:text-blue-700">${match.away}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-center font-bold text-lg bg-gray-50">${match.score}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-semibold ${statusColor}">
                             ${match.status} ${minute}
@@ -158,7 +174,7 @@
         // Inicjalizacja
         fetchLive();
         fetchEvents();
-        setInterval(fetchLive, 10000);
+        setInterval(fetchLive, 10000); // Odświeżanie co 10 sekund
         setInterval(fetchEvents, 10000);
     </script>
 </body>

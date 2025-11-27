@@ -14,6 +14,8 @@ TEAM_FORM_CACHE = {}
 SEARCH_CACHE = {}
 STANDINGS_CACHE = {}
 FIXTURES_CACHE = {}
+MATCH_CACHE = {}
+TEAM_PROFILE_CACHE = {}
 
 LIVE_CACHE_TIME = 60 
 TEAM_FORM_CACHE_TIME = 300 
@@ -48,6 +50,10 @@ def form_tracker_page(): return render_template('form_tracker.html')
 @app.route('/head-to-head')
 def head_to_head_page(): return render_template('head_to_head.html')
 
+@app.route('/team-search')
+def team_search_page():
+    return render_template('team_search.html')
+
 @app.route('/live')
 def live_scores():
     now = time.time()
@@ -59,6 +65,7 @@ def live_scores():
     live_list = []
     for match in data.get("response", []):
         live_list.append({
+            "id": match["fixture"]["id"],
             "home": match["teams"]["home"]["name"],
             "away": match["teams"]["away"]["name"],
             "score": f"{match['goals']['home']} - {match['goals']['away']}",
@@ -163,6 +170,7 @@ def team_form(team_id):
         dt = datetime.fromisoformat(match["fixture"]["date"].replace('Z', '+00:00'))
         
         match_data = {
+            "id": match["fixture"]["id"],
             "original_date": match["fixture"]["date"], "date": dt.strftime("%d.%m.%Y"),
             "opponent": match["teams"]["away"]["name"] if is_home else match["teams"]["home"]["name"],
             "logo": match["teams"]["away"]["logo"] if is_home else match["teams"]["home"]["logo"],
@@ -215,6 +223,7 @@ def head_to_head(team1_id, team2_id):
         winner = "home" if home_win else ("away" if away_win else "draw")
         dt = datetime.fromisoformat(match["fixture"]["date"].replace('Z', '+00:00'))
         matches.append({
+            "id": match["fixture"]["id"],
             "original_date": match["fixture"]["date"], "date": dt.strftime("%d.%m.%Y"),
             "home": match["teams"]["home"]["name"], "away": match["teams"]["away"]["name"],
             "score": f"{goals['home']} - {goals['away']}", "league_name": match["league"]["name"], "winner": winner
@@ -265,7 +274,10 @@ def get_standings(league_id):
             group_data = []
             for row in group:
                 group_data.append({
-                    "rank": row["rank"], "team": row["team"]["name"], "logo": row["team"]["logo"],
+                    "rank": row["rank"], 
+                    "team": row["team"]["name"], 
+                    "team_id": row["team"]["id"],
+                    "logo": row["team"]["logo"],
                     "points": row["points"], "goalsDiff": row["goalsDiff"], "form": row["form"],
                     "played": row["all"]["played"], "win": row["all"]["win"], "draw": row["all"]["draw"],
                     "lose": row["all"]["lose"], "description": row.get("description"), "group_name": row.get("group")
@@ -293,6 +305,7 @@ def get_fixtures_by_league(league_id):
         penalty = score.get("penalty", {})
         dt = datetime.fromisoformat(match["fixture"]["date"].replace('Z', '+00:00'))
         matches.append({
+            "id": match["fixture"]["id"],
             "date": dt.strftime("%d.%m.%Y"), "timestamp": match["fixture"]["timestamp"],
             "round": match["league"]["round"],
             "home": match["teams"]["home"]["name"], "home_id": match["teams"]["home"]["id"],
@@ -306,6 +319,142 @@ def get_fixtures_by_league(league_id):
     matches.sort(key=lambda x: x["timestamp"], reverse=True)
     FIXTURES_CACHE[cache_key] = {'time': now, 'data': matches}
     return jsonify(matches)
+
+# --- MATCH DETAILS ROUTES ---
+
+@app.route('/match/<int:fixture_id>')
+def match_page(fixture_id):
+    return render_template('match_stats.html', fixture_id=fixture_id)
+
+@app.route('/api/match-details/<int:fixture_id>')
+def get_match_details(fixture_id):
+    now = time.time()
+    if fixture_id in MATCH_CACHE:
+        cached = MATCH_CACHE[fixture_id]
+        is_live = cached['data']['fixture']['status']['short'] in ['1H', 'HT', '2H', 'ET', 'P']
+        validity = 15 if is_live else 300
+        if now - cached['time'] < validity:
+            return jsonify(cached['data'])
+
+    url = f"{BASE_URL}/fixtures?id={fixture_id}"
+    response = requests.get(url, headers=HEADERS)
+    data = response.json()
+    
+    if data.get("response"):
+        result = data["response"][0]
+        MATCH_CACHE[fixture_id] = {'time': now, 'data': result}
+        return jsonify(result)
+    return jsonify({})
+
+# --- TEAM PROFILE ROUTES ---
+
+@app.route('/team/<int:team_id>')
+def team_profile(team_id):
+    return render_template('team_profile.html', team_id=team_id)
+
+@app.route('/api/team-profile-data/<int:team_id>')
+def get_team_profile_data(team_id):
+    now = time.time()
+    # Cache na 1 godzinę
+    if team_id in TEAM_PROFILE_CACHE and now - TEAM_PROFILE_CACHE[team_id]['time'] < 3600:
+        return jsonify(TEAM_PROFILE_CACHE[team_id]['data'])
+
+    try:
+        headers = HEADERS
+        season = get_current_season()
+        
+        # 1. Info o klubie
+        res_info = requests.get(f"{BASE_URL}/teams?id={team_id}", headers=headers).json()
+        team_info = res_info['response'][0]['team'] if res_info.get('response') else {}
+        venue_info = res_info['response'][0]['venue'] if res_info.get('response') else {}
+
+        # 2. Mecze (Ostatnie 10) - pobieramy najpierw, żeby znaleźć trenera
+        res_last = requests.get(f"{BASE_URL}/fixtures?team={team_id}&last=10&season={season}", headers=headers).json()
+        last_matches_raw = res_last.get('response', [])
+        
+        res_next = requests.get(f"{BASE_URL}/fixtures?team={team_id}&next=10&season={season}", headers=headers).json()
+
+        # 3. INTELIGENTNE POBIERANIE TRENERA (LOOP CHECK)
+        coach = {}
+        coach_found = False
+
+        # Metoda A: Sprawdź w ostatnich 3 meczach (jeśli w ostatnim brak danych)
+        if last_matches_raw:
+            # Sprawdzamy max 3 ostatnie mecze
+            matches_to_check = last_matches_raw[:3]
+            
+            for match_item in matches_to_check:
+                if coach_found: 
+                    break
+                
+                fixture_id = match_item['fixture']['id']
+                try:
+                    # Pobierz szczegóły meczu (tam są składy i trenerzy)
+                    res_details = requests.get(f"{BASE_URL}/fixtures?id={fixture_id}", headers=headers).json()
+                    if res_details.get('response'):
+                        lineups = res_details['response'][0].get('lineups', [])
+                        for lineup in lineups:
+                            # Szukamy składu TEJ drużyny i sprawdzamy czy jest pole coach i czy ma nazwę
+                            if lineup['team']['id'] == team_id and lineup.get('coach') and lineup['coach'].get('name'):
+                                c_data = lineup['coach']
+                                coach = {
+                                    "id": c_data.get('id'),
+                                    "name": c_data.get('name'),
+                                    "firstname": c_data.get('name'), # Workaround dla HTML
+                                    "lastname": "",
+                                    "photo": c_data.get('photo')
+                                }
+                                coach_found = True
+                                break
+                except Exception as e:
+                    print(f"Błąd pobierania trenera z meczu {fixture_id}: {e}")
+
+        # Metoda B: Fallback do /coachs (jeśli nadal brak)
+        if not coach_found:
+            res_coach = requests.get(f"{BASE_URL}/coachs?team={team_id}", headers=headers).json()
+            if res_coach.get('response'):
+                coach = res_coach['response'][0]
+
+        # 4. Skład
+        res_squad = requests.get(f"{BASE_URL}/players/squads?team={team_id}", headers=headers).json()
+        squad = res_squad['response'][0]['players'] if res_squad.get('response') else []
+
+        # Formatowanie
+        def format_matches(match_list):
+            formatted = []
+            for m in match_list:
+                dt = datetime.fromisoformat(m["fixture"]["date"].replace('Z', '+00:00'))
+                goals = m['goals']
+                score = f"{goals['home']}-{goals['away']}" if goals['home'] is not None else "-:-"
+                formatted.append({
+                    "id": m["fixture"]["id"],
+                    "date": dt.strftime("%d.%m.%Y"),
+                    "time": dt.strftime("%H:%M"),
+                    "league": m["league"]["name"],
+                    "home": m["teams"]["home"]["name"],
+                    "home_logo": m["teams"]["home"]["logo"],
+                    "away": m["teams"]["away"]["name"],
+                    "away_logo": m["teams"]["away"]["logo"],
+                    "score": score,
+                    "is_finished": m["fixture"]["status"]["short"] in ['FT', 'AET', 'PEN']
+                })
+            return formatted
+
+        data = {
+            "info": team_info,
+            "venue": venue_info,
+            "coach": coach,
+            "squad": squad,
+            "last_matches": format_matches(last_matches_raw),
+            "next_matches": format_matches(res_next.get('response', []))
+        }
+
+        TEAM_PROFILE_CACHE[team_id] = {'time': now, 'data': data}
+        return jsonify(data)
+
+    except Exception as e:
+        print(f"Error fetching team data: {e}")
+        return jsonify({})
 
 if __name__ == "__main__":
     app.run(debug=True)

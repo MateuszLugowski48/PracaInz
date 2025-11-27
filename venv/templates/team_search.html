@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>Wyszukaj Klub</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <nav class="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-3xl mx-auto flex items-center">
+            <a href="/" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center transition mr-4">
+                <span class="text-xl mr-1">⟵</span> Wróć
+            </a>
+            <span class="font-bold text-gray-700">Baza Klubów</span>
+        </div>
+    </nav>
+
+    <div class="max-w-2xl mx-auto px-4 py-20 text-center">
+        
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Znajdź swój klub</h1>
+        <p class="text-gray-500 mb-8">Wpisz nazwę drużyny, aby zobaczyć jej kadrę, trenera i terminarz.</p>
+
+        <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <span class="text-gray-400 text-xl">🔍</span>
+            </div>
+            <input type="text" id="searchInput" 
+                   class="block w-full pl-12 pr-4 py-4 border border-gray-300 rounded-2xl text-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition" 
+                   placeholder="Np. Real Madrid, Legia, Manchester..." 
+                   onkeyup="handleSearch()" autocomplete="off" autofocus>
+            
+            <div id="searchResults" class="absolute w-full bg-white mt-2 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 hidden text-left divide-y divide-gray-50"></div>
+        </div>
+
+        <div class="mt-12 flex flex-wrap justify-center gap-3 opacity-60">
+            <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Popularne:</span>
+            <button onclick="goToTeam(131)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">FC Barcelona</button>
+            <button onclick="goToTeam(529)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">FC Barcelona (Kobiety)</button> <button onclick="goToTeam(541)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Real Madrid</button>
+            <button onclick="goToTeam(42)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Arsenal</button>
+            <button onclick="goToTeam(49)" class="text-sm bg-white border px-3 py-1 rounded-full hover:bg-gray-50 transition">Chelsea</button>
+        </div>
+
+    </div>
+
+    <script>
+        let searchTimeout = null;
+
+        function handleSearch() {
+            clearTimeout(searchTimeout);
+            const query = document.getElementById("searchInput").value;
+            const resultsDiv = document.getElementById("searchResults");
+
+            if (query.length < 3) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/search-teams?q=${query}`);
+                    const teams = await res.json();
+                    
+                    resultsDiv.innerHTML = '';
+                    
+                    if(teams.length > 0) {
+                        resultsDiv.classList.remove('hidden');
+                        teams.forEach(team => {
+                            const div = document.createElement('div');
+                            div.className = 'flex items-center px-6 py-4 hover:bg-red-50 cursor-pointer transition duration-150 group';
+                            div.onclick = () => goToTeam(team.id);
+                            div.innerHTML = `
+                                <img src="${team.logo}" class="w-10 h-10 object-contain mr-4 bg-white p-1 rounded-full border border-gray-100 group-hover:border-red-200">
+                                <div>
+                                    <div class="text-base font-bold text-gray-900 group-hover:text-red-700">${team.name}</div>
+                                    <div class="text-xs text-gray-400">${team.country}</div>
+                                </div>
+                                <div class="ml-auto text-gray-300 text-xl group-hover:text-red-400">➔</div>
+                            `;
+                            resultsDiv.appendChild(div);
+                        });
+                    } else {
+                        resultsDiv.classList.add('hidden');
+                    }
+                } catch (e) { console.error(e); }
+            }, 300);
+        }
+
+        function goToTeam(id) {
+            window.location.href = `/team/${id}`;
+        }
+    </script>
+</body>
+</html>

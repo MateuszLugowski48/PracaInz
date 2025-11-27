@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>Profil Drużyny</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+
+    <nav class="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-5xl mx-auto flex items-center">
+            <a href="javascript:history.back()" class="text-blue-600 hover:text-blue-800 font-semibold flex items-center transition mr-4">
+                <span class="text-xl mr-1">⟵</span> Wróć
+            </a>
+            <span class="font-bold text-gray-700">Profil Klubu</span>
+        </div>
+    </nav>
+
+    <div id="loading" class="text-center py-20">
+        <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
+        <p class="mt-4 text-gray-500">Pobieranie danych o klubie...</p>
+    </div>
+
+    <div id="content" class="max-w-5xl mx-auto px-4 mt-6 hidden animate-fade-in">
+        
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-8 mb-8 flex flex-col md:flex-row items-center md:items-start">
+            <div class="flex-shrink-0 mb-6 md:mb-0 md:mr-8">
+                <img id="teamLogo" class="w-32 h-32 object-contain p-2 border border-gray-100 rounded-2xl bg-gray-50">
+            </div>
+            <div class="text-center md:text-left flex-1">
+                <h1 id="teamName" class="text-4xl font-extrabold text-gray-900 mb-2"></h1>
+                <div class="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-gray-500">
+                    <div class="flex items-center"><span class="mr-1">🌍</span> <span id="teamCountry"></span></div>
+                    <div class="flex items-center"><span class="mr-1">🏟️</span> <span id="teamStadium"></span></div>
+                    <div class="flex items-center"><span class="mr-1">📅</span> Założony: <span id="teamFounded"></span></div>
+                </div>
+                
+                <div id="coachSection" class="mt-6 pt-6 border-t border-gray-100 flex items-center justify-center md:justify-start hidden">
+                    <img id="coachPhoto" class="w-12 h-12 rounded-full object-cover mr-3 border border-gray-200">
+                    <div>
+                        <div class="text-xs text-gray-400 uppercase font-bold">Trener</div>
+                        <div id="coachName" class="font-bold text-gray-900"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex border-b border-gray-200 mb-6">
+            <button onclick="switchTab('matches')" id="btn-matches" class="px-6 py-3 text-blue-600 border-b-2 border-blue-600 font-bold text-sm transition">Mecze</button>
+            <button onclick="switchTab('squad')" id="btn-squad" class="px-6 py-3 text-gray-500 border-b-2 border-transparent hover:text-gray-700 font-medium text-sm transition">Kadra</button>
+        </div>
+
+        <div id="view-matches" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-700">Ostatnie Wyniki</div>
+                <div id="lastMatchesList" class="divide-y divide-gray-100"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-700">Nadchodzące Mecze</div>
+                <div id="nextMatchesList" class="divide-y divide-gray-100"></div>
+            </div>
+        </div>
+
+        <div id="view-squad" class="hidden">
+            <div id="squadContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Obejście dla edytora kodu
+        const teamId = Number("{{ team_id }}");
+
+        async function loadTeam() {
+            try {
+                const res = await fetch(`/api/team-profile-data/${teamId}`);
+                const data = await res.json();
+
+                if(!data.info) {
+                    document.getElementById("loading").innerHTML = "Błąd ładowania danych."; return;
+                }
+
+                // Wypełnij nagłówek
+                document.getElementById("teamName").textContent = data.info.name;
+                document.getElementById("teamLogo").src = data.info.logo;
+                document.getElementById("teamCountry").textContent = data.info.country;
+                document.getElementById("teamStadium").textContent = data.venue.name || "Brak danych";
+                document.getElementById("teamFounded").textContent = data.info.founded || "-";
+
+                // Trener
+                if(data.coach && data.coach.name) {
+                    document.getElementById("coachSection").classList.remove("hidden");
+                    document.getElementById("coachName").textContent = `${data.coach.firstname} ${data.coach.lastname}`;
+                    document.getElementById("coachPhoto").src = data.coach.photo;
+                }
+
+                // Mecze
+                renderMatches(data.last_matches, "lastMatchesList", true);
+                renderMatches(data.next_matches, "nextMatchesList", false);
+
+                // Kadra
+                renderSquad(data.squad);
+
+                document.getElementById("loading").classList.add("hidden");
+                document.getElementById("content").classList.remove("hidden");
+
+            } catch(e) { console.error(e); }
+        }
+
+        function renderMatches(matches, elementId, isFinished) {
+            const container = document.getElementById(elementId);
+            if(matches.length === 0) {
+                container.innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">Brak danych.</div>'; return;
+            }
+
+            container.innerHTML = matches.map(m => {
+                // Logika kolorowania wyniku (tylko dla zakończonych)
+                let scoreClass = "bg-gray-100 text-gray-800";
+                if(isFinished) {
+                    const parts = m.score.split("-");
+                    const h = parseInt(parts[0]), a = parseInt(parts[1]);
+                    const isHome = m.home === document.getElementById("teamName").textContent; // Proste sprawdzenie nazwy
+                    // Dokładniejsze byłoby porównanie ID, ale w tym widoku mamy tylko nazwy z format_matches
+                    // Uznajmy szary neutralny, bo w format_matches nie przekazałem ID bieżącego teamu do logiki
+                }
+
+                return `
+                <div onclick="window.location.href='/match/${m.id}'" class="p-4 hover:bg-blue-50 transition cursor-pointer flex items-center justify-between group">
+                    <div class="text-xs text-gray-400 w-16">
+                        <div>${m.date}</div>
+                        <div class="font-mono text-blue-400">${m.time}</div>
+                    </div>
+                    <div class="flex-1 flex items-center justify-between px-2">
+                        <div class="flex items-center w-5/12 justify-end text-right">
+                            <span class="text-sm font-medium truncate mr-2 ${m.home === document.getElementById("teamName").textContent ? 'font-bold' : ''}">${m.home}</span>
+                            <img src="${m.home_logo}" class="w-6 h-6 object-contain">
+                        </div>
+                        <div class="px-2 font-bold text-sm ${scoreClass} rounded py-1 mx-1 whitespace-nowrap">${m.score}</div>
+                        <div class="flex items-center w-5/12 text-left">
+                            <img src="${m.away_logo}" class="w-6 h-6 object-contain mr-2">
+                            <span class="text-sm font-medium truncate ${m.away === document.getElementById("teamName").textContent ? 'font-bold' : ''}">${m.away}</span>
+                        </div>
+                    </div>
+                </div>
+            `}).join("");
+        }
+
+        function renderSquad(squad) {
+            const container = document.getElementById("squadContainer");
+            if(!squad || squad.length === 0) {
+                container.innerHTML = '<div class="col-span-4 text-center text-gray-400 py-10">Brak składu.</div>'; return;
+            }
+
+            const positions = { "Goalkeeper": "Bramkarze", "Defender": "Obrońcy", "Midfielder": "Pomocnicy", "Attacker": "Napastnicy" };
+            
+            // Grupuj piłkarzy
+            const grouped = { "Goalkeeper": [], "Defender": [], "Midfielder": [], "Attacker": [] };
+            squad.forEach(p => { if(grouped[p.position]) grouped[p.position].push(p); });
+
+            let html = "";
+            for(const [posKey, players] of Object.entries(grouped)) {
+                if(players.length === 0) continue;
+                html += `
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                        <h3 class="font-bold text-gray-400 uppercase text-xs mb-4 tracking-wider border-b pb-2">${positions[posKey]}</h3>
+                        <div class="space-y-3">
+                            ${players.map(p => `
+                                <div class="flex items-center">
+                                    <img src="${p.photo}" class="w-8 h-8 rounded-full bg-gray-100 object-cover mr-3">
+                                    <div>
+                                        <div class="font-bold text-sm text-gray-900">${p.name}</div>
+                                        <div class="text-xs text-blue-500">Nr ${p.number || '-'}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        function switchTab(tab) {
+            if(tab === 'matches') {
+                document.getElementById("view-matches").classList.remove("hidden");
+                document.getElementById("view-squad").classList.add("hidden");
+                document.getElementById("btn-matches").classList.replace("text-gray-500", "text-blue-600");
+                document.getElementById("btn-matches").classList.replace("border-transparent", "border-blue-600");
+                document.getElementById("btn-squad").classList.replace("text-blue-600", "text-gray-500");
+                document.getElementById("btn-squad").classList.replace("border-blue-600", "border-transparent");
+            } else {
+                document.getElementById("view-matches").classList.add("hidden");
+                document.getElementById("view-squad").classList.remove("hidden");
+                document.getElementById("btn-squad").classList.replace("text-gray-500", "text-blue-600");
+                document.getElementById("btn-squad").classList.replace("border-transparent", "border-blue-600");
+                document.getElementById("btn-matches").classList.replace("text-blue-600", "text-gray-500");
+                document.getElementById("btn-matches").classList.replace("border-blue-600", "border-transparent");
+            }
+        }
+
+        loadTeam();
+    </script>
+</body>
+</html>
