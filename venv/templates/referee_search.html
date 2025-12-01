@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>Profil Sędziego - Football Data Hub</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    {% include 'navbar.html' %}
+
+    <div class="max-w-5xl mx-auto px-4 py-10">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Znajdź Sędziego ⚖️</h1>
+                <p class="text-gray-500">Analiza stylu sędziowania (Kartki, Karne, Gole).</p>
+            </div>
+            <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-3 py-1 rounded-full border border-yellow-200">PREMIUM DATA</span>
+        </div>
+
+        <div class="relative mb-10">
+            <input type="text" id="refereeInput" list="refereeList" placeholder="Zacznij pisać nazwisko (np. Mar...)" 
+                   class="w-full p-4 pl-5 rounded-xl border border-gray-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-lg"
+                   onkeypress="if(event.key === 'Enter') searchReferee()">
+            
+            <datalist id="refereeList">
+                </datalist>
+
+            <button onclick="searchReferee()" class="absolute right-3 top-3 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold">
+                Szukaj
+            </button>
+        </div>
+
+        <div id="loader" class="hidden text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent"></div>
+            <p class="mt-4 text-gray-600 font-medium">Pobieram raporty meczowe...</p>
+            <p class="text-gray-400 text-xs mt-1">To może potrwać kilka sekund.</p>
+        </div>
+
+        <div id="resultContainer" class="hidden space-y-8 animate-fade-in">
+            
+            <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-6">
+                <div class="bg-blue-50 p-4 rounded-full text-4xl">👮‍♂️</div>
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900" id="refName"></h2>
+                    <p class="text-gray-500 mt-1">Przeanalizowano <span id="statMatches" class="font-bold text-gray-900">0</span> ostatnich meczów</p>
+                    <p class="text-gray-400 text-sm mt-1" id="refLeagues"></p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-yellow-200 shadow-sm text-center relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-2 opacity-10 text-6xl">🟨</div>
+                    <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Śr. Żółtych kartek</p>
+                    <p class="text-4xl font-extrabold text-yellow-500 mt-2" id="avgYellow">-</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-red-200 shadow-sm text-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-2 opacity-10 text-6xl">🟥</div>
+                    <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Śr. Czerwonych</p>
+                    <p class="text-4xl font-extrabold text-red-600 mt-2" id="avgRed">-</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-purple-200 shadow-sm text-center">
+                    <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Podyktowane Karne</p>
+                    <p class="text-4xl font-extrabold text-purple-600 mt-2" id="totalPens">-</p>
+                    <p class="text-[10px] text-gray-400 mt-1">Łącznie w analizowanych meczach</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-green-200 shadow-sm text-center">
+                    <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Śr. Goli / Mecz</p>
+                    <p class="text-4xl font-extrabold text-green-600 mt-2" id="avgGoals">-</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                    <h3 class="font-bold text-gray-900">Historia meczów</h3>
+                    <span class="text-xs text-gray-400">Sortowane wg daty</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm text-left">
+                        <thead class="bg-gray-50 text-gray-500 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-3 font-medium">Data / Liga</th>
+                                <th class="px-6 py-3 font-medium text-right">Gospodarz</th>
+                                <th class="px-6 py-3 font-medium text-center">Wynik</th>
+                                <th class="px-6 py-3 font-medium text-left">Gość</th>
+                                <th class="px-6 py-3 font-medium text-center">Kartki</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matchesTableBody" class="divide-y divide-gray-100">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="errorMsg" class="hidden mt-6 p-4 bg-red-50 text-red-700 rounded-xl text-center border border-red-100"></div>
+    </div>
+
+    <script>
+        // Funkcja ładująca listę wszystkich sędziów do autouzupełniania
+        async function loadRefereesList() {
+            try {
+                // Pobieramy listę z naszego nowego endpointu
+                const res = await fetch('/api/referees-list');
+                const referees = await res.json();
+                
+                const dataList = document.getElementById('refereeList');
+                dataList.innerHTML = ""; // Czyścimy na wszelki wypadek
+
+                referees.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    dataList.appendChild(option);
+                });
+            } catch(e) {
+                console.error("Błąd ładowania listy sędziów:", e);
+            }
+        }
+
+        async function searchReferee() {
+            // ... (Twoja stara funkcja searchReferee pozostaje bez zmian) ...
+            const query = document.getElementById('refereeInput').value.trim();
+            if(query.length < 3) return alert("Wpisz co najmniej 3 litery.");
+
+            // Reset UI
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('resultContainer').classList.add('hidden');
+            document.getElementById('errorMsg').classList.add('hidden');
+
+            try {
+                // ... (Reszta kodu searchReferee bez zmian) ...
+                const res = await fetch(`/api/referee-stats?name=${encodeURIComponent(query)}`);
+                const data = await res.json();
+
+                document.getElementById('loader').classList.add('hidden');
+
+                if(res.status !== 200) {
+                    document.getElementById('errorMsg').innerText = data.error || "Błąd serwera.";
+                    document.getElementById('errorMsg').classList.remove('hidden');
+                    return;
+                }
+
+                // Wypełnianie (skopiuj ze swojego ostatniego działającego kodu premium)
+                document.getElementById('refName').innerText = data.name;
+                document.getElementById('statMatches').innerText = data.matches_count;
+                document.getElementById('refLeagues').innerText = data.leagues.join(", ");
+
+                document.getElementById('avgYellow').innerText = data.avg_yellow;
+                document.getElementById('avgRed').innerText = data.avg_red;
+                document.getElementById('totalPens').innerText = data.total_penalties;
+                document.getElementById('avgGoals').innerText = data.avg_goals;
+
+                const tbody = document.getElementById('matchesTableBody');
+                tbody.innerHTML = "";
+                data.recent_matches.forEach(m => {
+                    tbody.innerHTML += `
+                        <tr class="cursor-pointer hover:bg-blue-50 transition group" onclick="window.location.href='/match/${m.id}'">
+                            <td class="px-6 py-4">
+                                <div class="font-medium text-gray-900 group-hover:text-blue-700 transition">${m.date}</div>
+                                <div class="text-xs text-blue-600">${m.league}</div>
+                            </td>
+                            <td class="px-6 py-4 text-right font-medium text-gray-700 group-hover:text-blue-800">${m.home}</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="px-3 py-1 bg-gray-100 group-hover:bg-white rounded-lg font-bold text-gray-900 text-md border border-gray-200 shadow-sm transition">
+                                    ${m.score}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-left font-medium text-gray-700 group-hover:text-blue-800">${m.away}</td>
+                            <td class="px-6 py-4 text-center font-mono text-xs text-gray-500">
+                                ${m.cards_info}
+                            </td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('resultContainer').classList.remove('hidden');
+
+            } catch(e) {
+                document.getElementById('loader').classList.add('hidden');
+                console.error(e);
+                document.getElementById('errorMsg').innerText = "Wystąpił błąd.";
+                document.getElementById('errorMsg').classList.remove('hidden');
+            }
+        }
+
+        // Uruchamiamy pobieranie listy sędziów od razu po załadowaniu strony
+        window.onload = loadRefereesList;
+    </script>
+</body>
+</html>

@@ -7,8 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
-    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-12">
 
@@ -16,28 +19,37 @@
 
     <div class="max-w-6xl mx-auto px-4 mt-8">
         
+        <h1 class="text-3xl font-extrabold text-center text-gray-900 mb-2">⚔️ Pojedynek Gwiazd (H2H)</h1>
+        <p class="text-center text-gray-500 mb-8 text-sm">Porównanie łączne ze wszystkich rozgrywek w sezonie</p>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100 relative">
-                <h3 class="text-xs font-bold text-blue-500 uppercase mb-2">Zawodnik 1</h3>
-                <input type="text" id="search1" onkeyup="searchPlayer(1)" placeholder="Szukaj..." class="w-full border-b border-gray-200 py-2 focus:outline-none focus:border-blue-500 font-bold mb-4">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-200 relative">
+                <h3 class="text-xs font-bold text-blue-600 uppercase mb-2">Zawodnik 1</h3>
+                <input type="text" id="search1" onkeyup="searchPlayer(1)" placeholder="Szukaj gracza..." class="w-full border-b-2 border-gray-100 py-2 focus:outline-none focus:border-blue-500 font-bold mb-4 text-lg transition">
                 <div id="results1" class="absolute left-0 right-0 bg-white shadow-xl z-20 rounded-xl hidden max-h-60 overflow-y-auto border border-gray-100 mx-6"></div>
                 
-                <div id="p1-card" class="hidden text-center animate-fade-in">
-                    <img id="p1-img" class="w-24 h-24 rounded-full mx-auto mb-3 object-cover border-4 border-blue-50">
-                    <h2 id="p1-name" class="text-xl font-black text-gray-900"></h2>
-                    <p id="p1-team" class="text-sm text-gray-500"></p>
+                <div id="p1-card" class="hidden text-center animate-fade-in mt-4">
+                    <div class="relative w-24 h-24 mx-auto mb-3">
+                        <img id="p1-img" class="w-full h-full rounded-full object-cover border-4 border-blue-100 shadow-md">
+                        <div class="absolute bottom-0 right-0 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">P1</div>
+                    </div>
+                    <h2 id="p1-name" class="text-xl font-black text-gray-900 leading-tight"></h2>
+                    <p id="p1-team" class="text-sm text-gray-500 mt-1"></p>
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-red-100 relative">
-                <h3 class="text-xs font-bold text-red-500 uppercase mb-2">Zawodnik 2</h3>
-                <input type="text" id="search2" onkeyup="searchPlayer(2)" placeholder="Szukaj..." class="w-full border-b border-gray-200 py-2 focus:outline-none focus:border-red-500 font-bold mb-4">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-red-200 relative">
+                <h3 class="text-xs font-bold text-red-600 uppercase mb-2">Zawodnik 2</h3>
+                <input type="text" id="search2" onkeyup="searchPlayer(2)" placeholder="Szukaj gracza..." class="w-full border-b-2 border-gray-100 py-2 focus:outline-none focus:border-red-500 font-bold mb-4 text-lg transition">
                 <div id="results2" class="absolute left-0 right-0 bg-white shadow-xl z-20 rounded-xl hidden max-h-60 overflow-y-auto border border-gray-100 mx-6"></div>
                 
-                <div id="p2-card" class="hidden text-center animate-fade-in">
-                    <img id="p2-img" class="w-24 h-24 rounded-full mx-auto mb-3 object-cover border-4 border-red-50">
-                    <h2 id="p2-name" class="text-xl font-black text-gray-900"></h2>
-                    <p id="p2-team" class="text-sm text-gray-500"></p>
+                <div id="p2-card" class="hidden text-center animate-fade-in mt-4">
+                    <div class="relative w-24 h-24 mx-auto mb-3">
+                        <img id="p2-img" class="w-full h-full rounded-full object-cover border-4 border-red-100 shadow-md">
+                        <div class="absolute bottom-0 right-0 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow">P2</div>
+                    </div>
+                    <h2 id="p2-name" class="text-xl font-black text-gray-900 leading-tight"></h2>
+                    <p id="p2-team" class="text-sm text-gray-500 mt-1"></p>
                 </div>
             </div>
         </div>
@@ -45,33 +57,42 @@
         <div class="flex flex-col items-center justify-center mb-12 space-y-4">
             <div class="w-64">
                 <label class="block text-xs font-bold text-gray-400 uppercase text-center mb-2">Wybierz Sezon</label>
-                <select id="seasonSelect" onchange="handleSeasonChange()" class="block w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 text-center shadow-sm">
-                    </select>
+                <select id="seasonSelect" onchange="handleSeasonChange()" class="block w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 text-center shadow-sm font-medium">
+                </select>
             </div>
 
             <button id="compareBtn" onclick="compare()" disabled class="bg-gray-300 text-white font-bold py-3 px-12 rounded-full shadow-lg transition transform scale-95 cursor-not-allowed">
-                PORÓWNAJ
+                GENERUJ PORÓWNANIE (ALL) 📊
             </button>
         </div>
 
-        <div id="comparisonResult" class="hidden grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div id="comparisonResult" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
             
-            <div class="md:col-span-1 bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden flex flex-col justify-center">
-                <table class="w-full text-sm">
-                    <tbody class="divide-y divide-gray-100">
-                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-age"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Wiek</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-age"></td></tr>
-                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-matches"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Mecze</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-matches"></td></tr>
-                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-goals"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Gole</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-goals"></td></tr>
-                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-assists"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Asysty</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-assists"></td></tr>
-                        <tr><td class="p-4 text-center font-bold text-blue-600 text-lg" id="t1-rating"></td><td class="p-4 text-center text-gray-400 text-xs uppercase font-bold tracking-wider">Ocena</td><td class="p-4 text-center font-bold text-red-600 text-lg" id="t2-rating"></td></tr>
-                    </tbody>
-                </table>
+            <div class="lg:col-span-1 bg-white rounded-3xl shadow-sm border border-gray-200 p-6 flex flex-col items-center">
+                <h4 class="text-gray-900 font-bold mb-2">Profil Umiejętności</h4>
+                <p class="text-xs text-gray-400 mb-4 text-center">Dane zsumowane (Liga + Puchary)</p>
+                <div class="relative w-full h-72 md:h-80">
+                    <canvas id="radarChart"></canvas>
+                </div>
             </div>
 
-            <div class="md:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-200 p-6">
-                <h4 class="text-center text-gray-400 text-xs font-bold uppercase mb-4">Statystyki Łączne (Wszystkie Rozgrywki)</h4>
-                <div class="h-72 w-full">
-                    <canvas id="compareChart"></canvas>
+            <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                    <h4 class="font-bold text-gray-900">Łączne Statystyki</h4>
+                    <span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Wszystkie rozgrywki</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-50 text-gray-500">
+                            <tr>
+                                <th class="py-3 px-6 text-left font-medium w-1/3">Statystyka</th>
+                                <th class="py-3 px-6 text-center text-blue-600 font-bold w-1/3" id="th-p1">P1</th>
+                                <th class="py-3 px-6 text-center text-red-600 font-bold w-1/3" id="th-p2">P2</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stats-table-body" class="divide-y divide-gray-100">
+                            </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -80,13 +101,13 @@
 
     <script>
         let p1 = null, p2 = null;
-        let chart = null;
+        let chartInstance = null;
         let timeouts = {};
 
         function initSeasons() {
             const select = document.getElementById("seasonSelect");
-            const currentYear = 2025; 
-            const minYear = 2020;
+            const currentYear = new Date().getFullYear();
+            const minYear = 2018; 
             
             for(let y = currentYear; y >= minYear; y--) {
                 const opt = document.createElement("option");
@@ -94,10 +115,11 @@
                 opt.text = `Sezon ${y}/${y+1}`;
                 select.appendChild(opt);
             }
+            // Domyślnie poprzedni rok jeśli mamy początek roku
+            if(new Date().getMonth() < 6) select.value = currentYear - 1;
         }
 
         function handleSeasonChange() {
-            // Jeśli wyniki są już widoczne, odśwież je automatycznie po zmianie sezonu
             if (!document.getElementById("comparisonResult").classList.contains("hidden") && p1 && p2) {
                 compare();
             }
@@ -111,20 +133,25 @@
             if(q.length < 3) { resDiv.classList.add('hidden'); return; }
 
             timeouts[num] = setTimeout(async () => {
-                const res = await fetch(`/search-players?q=${q}`);
-                const data = await res.json();
-                resDiv.innerHTML = "";
-                
-                if(data.length > 0) {
-                    resDiv.classList.remove('hidden');
-                    data.forEach(p => {
-                        const d = document.createElement('div');
-                        d.className = "flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 transition";
-                        d.onclick = () => selectPlayer(num, p);
-                        d.innerHTML = `<img src="${p.photo}" class="w-8 h-8 rounded-full mr-3 object-cover"><div class="text-sm font-bold text-gray-800">${p.name}<br><span class="text-xs text-gray-400 font-normal">${p.team}</span></div>`;
-                        resDiv.appendChild(d);
-                    });
-                }
+                try {
+                    const res = await fetch(`/search-players?q=${q}`);
+                    const data = await res.json();
+                    resDiv.innerHTML = "";
+                    
+                    if(data.length > 0) {
+                        resDiv.classList.remove('hidden');
+                        data.forEach(p => {
+                            const d = document.createElement('div');
+                            d.className = "flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 transition";
+                            d.onclick = () => selectPlayer(num, p);
+                            d.innerHTML = `<img src="${p.photo}" class="w-8 h-8 rounded-full mr-3 object-cover shadow-sm"><div class="text-sm font-bold text-gray-800">${p.name}<br><span class="text-xs text-gray-400 font-normal">${p.team}</span></div>`;
+                            resDiv.appendChild(d);
+                        });
+                    } else {
+                        resDiv.innerHTML = "<div class='p-3 text-sm text-gray-400'>Brak wyników.</div>";
+                        resDiv.classList.remove('hidden');
+                    }
+                } catch(e) { console.error(e); }
             }, 300);
         }
 
@@ -133,7 +160,10 @@
             
             document.getElementById(`results${num}`).classList.add("hidden");
             document.getElementById(`search${num}`).value = "";
-            document.getElementById(`p${num}-card`).classList.remove("hidden");
+            
+            const card = document.getElementById(`p${num}-card`);
+            card.classList.remove("hidden");
+            
             document.getElementById(`p${num}-name`).textContent = player.name;
             document.getElementById(`p${num}-team`).textContent = player.team;
             document.getElementById(`p${num}-img`).src = player.photo;
@@ -146,37 +176,70 @@
             }
         }
 
-        function aggregateStats(statsList) {
+        // --- KLUCZOWA ZMIANA: AGREGACJA STATYSTYK ZE WSZYSTKICH LIG ---
+        function aggregateStats(statsArray) {
+            // Pusty obiekt startowy
             let total = {
-                games: { appearences: 0, rating: 0 },
+                games: { appearences: 0, minutes: 0, rating: 0 },
                 goals: { total: 0, assists: 0 },
-                cards: { yellow: 0 }
+                shots: { on: 0 },
+                passes: { key: 0, accuracy: 0 },
+                dribbles: { success: 0 },
+                duels: { won: 0 },
+                tackles: { interceptions: 0 },
+                cards: { yellow: 0, red: 0 }
             };
+
+            if (!statsArray || statsArray.length === 0) return total;
 
             let ratingSum = 0;
             let ratingCount = 0;
+            let accuracySum = 0;
+            let accuracyCount = 0;
 
-            if (!statsList) return total;
+            statsArray.forEach(s => {
+                // Funkcja pomocnicza do bezpiecznego pobierania wartości
+                const get = (path) => path.split('.').reduce((acc, c) => (acc && acc[c] != null) ? acc[c] : 0, s);
 
-            statsList.forEach(s => {
-                total.games.appearences += (s.games.appearences || 0);
-                total.goals.total += (s.goals.total || 0);
-                total.goals.assists += (s.goals.assists || 0);
-                total.cards.yellow += (s.cards.yellow || 0);
+                // Sumowanie prostych liczb
+                total.games.appearences += parseInt(get('games.appearences')) || 0;
+                total.games.minutes += parseInt(get('games.minutes')) || 0;
+                total.goals.total += parseInt(get('goals.total')) || 0;
+                total.goals.assists += parseInt(get('goals.assists')) || 0;
+                total.shots.on += parseInt(get('shots.on')) || 0;
+                total.passes.key += parseInt(get('passes.key')) || 0;
+                total.dribbles.success += parseInt(get('dribbles.success')) || 0;
+                total.duels.won += parseInt(get('duels.won')) || 0;
+                total.tackles.interceptions += parseInt(get('tackles.interceptions')) || 0;
+                total.cards.yellow += parseInt(get('cards.yellow')) || 0;
+                total.cards.red += parseInt(get('cards.red')) || 0;
 
-                if (s.games.rating) {
-                    let weight = s.games.appearences || 1; 
-                    ratingSum += (parseFloat(s.games.rating) * weight);
-                    ratingCount += weight;
+                // Ważona średnia oceny (rating)
+                let rating = parseFloat(get('games.rating')) || 0;
+                let matches = parseInt(get('games.appearences')) || 0;
+                if (rating > 0 && matches > 0) {
+                    ratingSum += rating * matches;
+                    ratingCount += matches;
+                }
+
+                // Ważona średnia celności podań
+                let acc = parseInt(get('passes.accuracy')) || 0;
+                if (acc > 0 && matches > 0) {
+                     accuracySum += acc * matches;
+                     accuracyCount += matches;
                 }
             });
 
-            if (ratingCount > 0) {
-                total.games.rating = (ratingSum / ratingCount).toFixed(2);
-            } else {
-                total.games.rating = "-";
-            }
+            // Wyliczanie ostatecznych średnich
+            total.games.rating = ratingCount > 0 ? (ratingSum / ratingCount).toFixed(2) : "0.00";
+            total.passes.accuracy = accuracyCount > 0 ? Math.round(accuracySum / accuracyCount) : 0;
+
             return total;
+        }
+
+        // Pomocnicza funkcja do wyciągania z zagregowanego obiektu
+        function getStatValue(obj, path) {
+            return path.split('.').reduce((acc, c) => (acc && acc[c] != null) ? acc[c] : 0, obj);
         }
 
         async function compare() {
@@ -186,38 +249,98 @@
             const btn = document.getElementById("compareBtn");
             const originalText = btn.textContent;
             
-            btn.textContent = "POBIERANIE DANYCH...";
+            btn.textContent = "POBIERANIE...";
             btn.disabled = true;
             btn.classList.add("opacity-75");
             
             try {
-                // Dodano ?season=... do zapytań
                 const [d1, d2] = await Promise.all([
                     fetch(`/api/player-data/${p1.id}?season=${season}`).then(r => r.json()),
                     fetch(`/api/player-data/${p2.id}?season=${season}`).then(r => r.json())
                 ]);
 
+                // TERAZ UŻYWAMY FUNKCJI AGREGUJĄCEJ ZAMIAST statistics[0]
                 const s1 = aggregateStats(d1.statistics);
                 const s2 = aggregateStats(d2.statistics);
 
-                // Wiek jest stały, ale można go pominąć w statystykach historycznych lub zostawić jako info
-                document.getElementById("t1-age").textContent = d1.player.age || "-";
-                document.getElementById("t2-age").textContent = d2.player.age || "-";
+                // --- TABELA ---
+                const metrics = [
+                    { label: "Mecze Rozegrane", path: "games.appearences" },
+                    { label: "Minuty", path: "games.minutes" },
+                    { label: "Gole", path: "goals.total" },
+                    { label: "Asysty", path: "goals.assists" },
+                    { label: "Strzały Celne", path: "shots.on" },
+                    { label: "Kluczowe Podania", path: "passes.key" },
+                    { label: "Celność Podań %", path: "passes.accuracy", unit: "%" },
+                    { label: "Dryblingi Udane", path: "dribbles.success" },
+                    { label: "Pojedynki Wygrane", path: "duels.won" },
+                    { label: "Przechwyty", path: "tackles.interceptions" },
+                    { label: "Kartki (Żółte/Cz.)", path: "cards.yellow", special: true },
+                    { label: "Średnia Ocena", path: "games.rating", isRating: true }
+                ];
+
+                const tbody = document.getElementById("stats-table-body");
+                tbody.innerHTML = "";
+                document.getElementById("th-p1").textContent = p1.name;
+                document.getElementById("th-p2").textContent = p2.name;
+
+                metrics.forEach(m => {
+                    let v1 = getStatValue(s1, m.path);
+                    let v2 = getStatValue(s2, m.path);
+
+                    // Obsługa kartek (łączenie żółtych i czerwonych do wyświetlenia)
+                    if(m.special && m.path === "cards.yellow") {
+                        v1 = `${v1} / ${s1.cards.red}`;
+                        v2 = `${v2} / ${s2.cards.red}`;
+                    }
+
+                    // Kolorowanie
+                    let c1 = "text-gray-800", c2 = "text-gray-800";
+                    let bg1 = "", bg2 = "";
+                    let val1 = parseFloat(v1);
+                    let val2 = parseFloat(v2);
+
+                    if (!m.special && val1 > val2) { 
+                        c1 = "text-green-600 font-extrabold"; 
+                        bg1 = "bg-green-50 rounded-lg";
+                    } else if (!m.special && val2 > val1) { 
+                        c2 = "text-green-600 font-extrabold"; 
+                        bg2 = "bg-green-50 rounded-lg";
+                    }
+
+                    const row = `
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="py-3 px-6 text-gray-500 font-medium">${m.label}</td>
+                            <td class="py-3 px-6 text-center ${c1}"><span class="px-2 py-1 ${bg1}">${v1}${m.unit || ''}</span></td>
+                            <td class="py-3 px-6 text-center ${c2}"><span class="px-2 py-1 ${bg2}">${v2}${m.unit || ''}</span></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+
+                // --- WYKRES RADAROWY ---
+                const radarLabels = ["Gole", "Asysty", "Strzały Celne", "Kluczowe Podania", "Dryblingi", "Ocena (x2)"];
                 
-                fillRow("matches", s1.games.appearences, s2.games.appearences);
-                fillRow("goals", s1.goals.total, s2.goals.total);
-                fillRow("assists", s1.goals.assists, s2.goals.assists);
-                fillRow("rating", s1.games.rating, s2.games.rating);
+                const data1 = [
+                    s1.goals.total, s1.goals.assists, s1.shots.on, s1.passes.key, s1.dribbles.success,
+                    (parseFloat(s1.games.rating) || 0) * 2
+                ];
+
+                const data2 = [
+                    s2.goals.total, s2.goals.assists, s2.shots.on, s2.passes.key, s2.dribbles.success,
+                    (parseFloat(s2.games.rating) || 0) * 2
+                ];
+
+                renderRadarChart(p1.name, p2.name, radarLabels, data1, data2);
 
                 document.getElementById("comparisonResult").classList.remove("hidden");
-                
-                // Przewiń do wyników
-                document.getElementById("comparisonResult").scrollIntoView({behavior: 'smooth', block: 'nearest'});
+                setTimeout(() => {
+                    document.getElementById("comparisonResult").scrollIntoView({behavior: 'smooth', block: 'start'});
+                }, 100);
 
-                renderChart(p1.name, s1, p2.name, s2);
             } catch (e) {
                 console.error(e);
-                alert("Wystąpił błąd podczas pobierania danych.");
+                alert("Wystąpił błąd danych.");
             } finally {
                 btn.textContent = originalText;
                 btn.disabled = false;
@@ -225,68 +348,49 @@
             }
         }
 
-        function fillRow(id, v1, v2) {
-            const el1 = document.getElementById(`t1-${id}`);
-            const el2 = document.getElementById(`t2-${id}`);
-            el1.textContent = v1;
-            el2.textContent = v2;
+        function renderRadarChart(name1, name2, labels, d1, d2) {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
 
-            // Proste kolorowanie (kto lepszy)
-            // Reset
-            el1.className = "p-4 text-center font-bold text-blue-600 text-lg";
-            el2.className = "p-4 text-center font-bold text-red-600 text-lg";
-
-            const val1 = parseFloat(v1) || 0;
-            const val2 = parseFloat(v2) || 0;
-
-            if (val1 > val2) {
-                el1.classList.add("bg-blue-50", "rounded-l-xl");
-            } else if (val2 > val1) {
-                el2.classList.add("bg-red-50", "rounded-r-xl");
-            }
-        }
-
-        function renderChart(n1, s1, n2, s2) {
-            const ctx = document.getElementById('compareChart').getContext('2d');
-            if(chart) chart.destroy();
-
-            chart = new Chart(ctx, {
-                type: 'bar',
+            chartInstance = new Chart(ctx, {
+                type: 'radar',
                 data: {
-                    labels: ['Gole', 'Asysty', 'Mecze', 'Żółte Kartki'],
+                    labels: labels,
                     datasets: [
-                        { 
-                            label: n1, 
-                            data: [s1.goals.total||0, s1.goals.assists||0, s1.games.appearences||0, s1.cards.yellow||0], 
-                            backgroundColor: 'rgba(37, 99, 235, 0.8)', 
-                            borderColor: '#2563eb',
-                            borderWidth: 1,
-                            borderRadius: 6
+                        {
+                            label: name1,
+                            data: d1,
+                            backgroundColor: 'rgba(37, 99, 235, 0.2)', 
+                            borderColor: '#2563eb', 
+                            pointBackgroundColor: '#2563eb',
+                            borderWidth: 2
                         },
-                        { 
-                            label: n2, 
-                            data: [s2.goals.total||0, s2.goals.assists||0, s2.games.appearences||0, s2.cards.yellow||0], 
-                            backgroundColor: 'rgba(220, 38, 38, 0.8)', 
-                            borderColor: '#dc2626',
-                            borderWidth: 1,
-                            borderRadius: 6
+                        {
+                            label: name2,
+                            data: d2,
+                            backgroundColor: 'rgba(220, 38, 38, 0.2)', 
+                            borderColor: '#dc2626', 
+                            pointBackgroundColor: '#dc2626',
+                            borderWidth: 2
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            grid: { color: '#e5e7eb' }, 
+                            pointLabels: {
+                                font: { size: 11, weight: 'bold', family: 'Inter' },
+                                color: '#4b5563'
+                            },
+                            ticks: { display: false }
+                        }
+                    },
                     plugins: {
                         legend: { position: 'bottom' }
-                    },
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            grid: { borderDash: [2, 2] } 
-                        }, 
-                        x: { 
-                            grid: { display: false } 
-                        } 
                     }
                 }
             });

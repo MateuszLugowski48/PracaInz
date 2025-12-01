@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <title>Centrum Statystyk</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Ukrywanie paska przewijania w kontenerze przycisków */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 pb-12">
+
+    {% include 'navbar.html' %}
+
+    <div class="max-w-7xl mx-auto px-4 py-10">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-2">Centrum Statystyk 🏆</h1>
+            <p class="text-gray-500" id="current-league-name">Wybierz ligę, aby zobaczyć rankingi.</p>
+        </div>
+
+        <div class="max-w-md mx-auto mb-10 relative">
+            <div class="relative">
+                <input type="text" id="leagueSearch" 
+                       placeholder="🔍 Wyszukaj ligę (np. Eredivisie, MLS...)" 
+                       onkeyup="searchLeagues()"
+                       class="w-full p-4 pl-12 rounded-full border border-gray-300 shadow-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition text-lg">
+                <div class="absolute left-4 top-4 text-gray-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+            
+            <div id="leagueResults" class="absolute left-0 right-0 top-16 bg-white shadow-xl rounded-2xl border border-gray-100 z-50 hidden overflow-hidden">
+                </div>
+        </div>
+
+        <div class="flex justify-center mb-12 overflow-x-auto py-2 space-x-3 no-scrollbar px-4">
+            <button onclick="selectLeague(39, 'Premier League')" class="league-btn bg-white border border-gray-200 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:border-blue-500 hover:text-blue-600 transition flex-shrink-0 whitespace-nowrap" data-id="39">󠁧󠁢󠁥󠁮Premier League</button>
+            <button onclick="selectLeague(140, 'La Liga')" class="league-btn bg-white border border-gray-200 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:border-blue-500 hover:text-blue-600 transition flex-shrink-0 whitespace-nowrap" data-id="140">La Liga</button>
+            <button onclick="selectLeague(135, 'Serie A')" class="league-btn bg-white border border-gray-200 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:border-blue-500 hover:text-blue-600 transition flex-shrink-0 whitespace-nowrap" data-id="135">Serie A</button>
+            <button onclick="selectLeague(78, 'Bundesliga')" class="league-btn bg-white border border-gray-200 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:border-blue-500 hover:text-blue-600 transition flex-shrink-0 whitespace-nowrap" data-id="78">Bundesliga</button>
+            <button onclick="selectLeague(61, 'Ligue 1')" class="league-btn bg-white border border-gray-200 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:border-blue-500 hover:text-blue-600 transition flex-shrink-0 whitespace-nowrap" data-id="61">Ligue 1</button>
+            <button onclick="selectLeague(106, 'Ekstraklasa')" class="league-btn bg-white border border-gray-200 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:border-blue-500 hover:text-blue-600 transition flex-shrink-0 whitespace-nowrap" data-id="106">Ekstraklasa</button>
+            <button onclick="selectLeague(2, 'Champions League')" class="league-btn bg-white border border-gray-200 px-5 py-2 rounded-full font-bold text-sm shadow-sm hover:border-blue-500 hover:text-blue-600 transition flex-shrink-0 whitespace-nowrap" data-id="2">Liga Mistrzów</button>
+        </div>
+
+        <div id="stats-grid" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden flex flex-col h-full transform transition hover:-translate-y-1 duration-300">
+                <div class="bg-gradient-to-r from-blue-600 to-blue-500 p-4 text-white text-center relative">
+                    <div class="text-3xl mb-1">⚽</div>
+                    <h2 class="font-bold text-sm uppercase tracking-widest opacity-90">Najlepsi Strzelcy</h2>
+                </div>
+                <div class="p-0 overflow-y-auto max-h-[550px] scrollbar-thin flex-1" id="list-scorers">
+                    <div class="p-10 text-center text-gray-400 animate-pulse">Wybierz ligę...</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden flex flex-col h-full transform transition hover:-translate-y-1 duration-300">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-500 p-4 text-white text-center relative">
+                    <div class="text-3xl mb-1">🅰️</div>
+                    <h2 class="font-bold text-sm uppercase tracking-widest opacity-90">Najlepsi Asystenci</h2>
+                </div>
+                <div class="p-0 overflow-y-auto max-h-[550px] scrollbar-thin flex-1" id="list-assists">
+                    <div class="p-10 text-center text-gray-400 animate-pulse">Wybierz ligę...</div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden flex flex-col h-full transform transition hover:-translate-y-1 duration-300">
+                <div class="bg-gradient-to-r from-red-600 to-red-500 p-4 text-white text-center relative">
+                    <div class="text-3xl mb-1">🟨🟥</div>
+                    <h2 class="font-bold text-sm uppercase tracking-widest opacity-90">Kartkowicze</h2>
+                </div>
+                <div class="p-0 overflow-y-auto max-h-[550px] scrollbar-thin flex-1" id="list-cards">
+                    <div class="p-10 text-center text-gray-400 animate-pulse">Wybierz ligę...</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        let searchTimeout;
+
+        // Domyślne ładowanie Premier League
+        document.addEventListener("DOMContentLoaded", () => selectLeague(39, 'Premier League'));
+
+        // --- 1. Obsługa Wyszukiwarki ---
+        async function searchLeagues() {
+            clearTimeout(searchTimeout);
+            const query = document.getElementById('leagueSearch').value;
+            const resultsDiv = document.getElementById('leagueResults');
+            
+            if(query.length < 3) { 
+                resultsDiv.classList.add('hidden'); 
+                return; 
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/search-leagues?q=${query}`);
+                    const leagues = await res.json();
+                    
+                    resultsDiv.innerHTML = "";
+                    
+                    if(leagues.length === 0) {
+                        resultsDiv.innerHTML = '<div class="p-4 text-center text-gray-400 text-sm">Brak wyników</div>';
+                    } else {
+                        leagues.forEach(l => {
+                            const div = document.createElement('div');
+                            div.className = "flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition";
+                            div.onclick = () => {
+                                selectLeague(l.id, l.name);
+                                document.getElementById('leagueSearch').value = ""; // Czyść input
+                                resultsDiv.classList.add('hidden'); // Ukryj wyniki
+                            };
+                            div.innerHTML = `
+                                <img src="${l.logo}" class="w-8 h-8 object-contain mr-3">
+                                <div>
+                                    <p class="font-bold text-gray-800 text-sm">${l.name}</p>
+                                    <p class="text-xs text-gray-400">${l.country}</p>
+                                </div>
+                            `;
+                            resultsDiv.appendChild(div);
+                        });
+                    }
+                    resultsDiv.classList.remove('hidden');
+                } catch(e) { console.error(e); }
+            }, 300);
+        }
+
+        // --- 2. Wybór Ligi i Ładowanie ---
+        function selectLeague(id, name) {
+            // Aktualizacja nagłówka
+            document.getElementById('current-league-name').innerHTML = `Aktualnie przeglądasz: <span class="font-bold text-blue-600">${name}</span>`;
+            
+            // Aktualizacja stylu przycisków (jeśli liga jest na pasku)
+            document.querySelectorAll('.league-btn').forEach(b => {
+                if(parseInt(b.dataset.id) === id) {
+                    b.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-md');
+                    b.classList.remove('bg-white', 'border-gray-200', 'hover:text-blue-600');
+                } else {
+                    b.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-md');
+                    b.classList.add('bg-white', 'border-gray-200', 'hover:text-blue-600');
+                }
+            });
+
+            loadStats(id);
+        }
+
+        async function loadStats(leagueId) {
+            const loader = '<div class="flex flex-col items-center justify-center h-64 text-gray-400 animate-pulse"><div class="text-2xl mb-2">⏳</div>Ładowanie danych...</div>';
+            document.getElementById('list-scorers').innerHTML = loader;
+            document.getElementById('list-assists').innerHTML = loader;
+            document.getElementById('list-cards').innerHTML = loader;
+
+            try {
+                const [scorers, assists, cards] = await Promise.all([
+                    fetch(`/api/top-scorers/${leagueId}`).then(r => r.json()),
+                    fetch(`/api/top-assists/${leagueId}`).then(r => r.json()),
+                    fetch(`/api/top-cards/${leagueId}`).then(r => r.json())
+                ]);
+
+                renderList('list-scorers', scorers, 'goals', 'text-blue-600');
+                renderList('list-assists', assists, 'assists', 'text-purple-600');
+                renderList('list-cards', cards, 'cards', 'text-red-600');
+            } catch(e) {
+                console.error(e);
+                const err = '<div class="p-10 text-center text-red-400 text-sm">Błąd pobierania danych.</div>';
+                document.getElementById('list-scorers').innerHTML = err;
+            }
+        }
+
+        function renderList(containerId, data, type, colorClass) {
+            const container = document.getElementById(containerId);
+            if(!data || data.length === 0) {
+                container.innerHTML = '<div class="flex flex-col items-center justify-center h-64 text-gray-400"><span class="text-2xl mb-2">∅</span>Brak danych</div>';
+                return;
+            }
+
+            let html = '<table class="w-full text-left border-collapse">';
+            data.forEach((p, index) => {
+                let valueDisplay = p.value;
+                
+                if(type === 'cards') {
+                    valueDisplay = `<div class="flex items-center justify-end gap-2">
+                        <span class="flex items-center text-yellow-500 text-sm font-bold">${p.yellow}<span class="ml-0.5 text-[10px]">▮</span></span>
+                        ${p.red > 0 ? `<span class="flex items-center text-red-500 text-sm font-bold">${p.red}<span class="ml-0.5 text-[10px]">▮</span></span>` : ''}
+                    </div>`;
+                }
+
+                let rankClass = "text-gray-400 font-mono text-xs";
+                let bgClass = "";
+                if(index === 0) { rankClass = "text-yellow-500 font-black text-lg"; bgClass = "bg-yellow-50/50"; }
+                if(index === 1) { rankClass = "text-gray-500 font-bold text-md"; }
+                if(index === 2) { rankClass = "text-orange-400 font-bold text-md"; }
+
+                html += `
+                    <tr class="border-b border-gray-50 hover:bg-gray-50 transition cursor-pointer group ${bgClass}" onclick="window.location.href='/player/${p.id}'">
+                        <td class="p-3 w-8 text-center ${rankClass}">${index + 1}.</td>
+                        <td class="p-3">
+                            <div class="flex items-center">
+                                <div class="relative mr-3">
+                                    <img src="${p.photo}" class="w-10 h-10 rounded-full border border-gray-200 object-cover group-hover:scale-110 transition duration-200">
+                                    <img src="${p.team_logo}" class="w-4 h-4 absolute -bottom-1 -right-1 rounded-full border border-white bg-white">
+                                </div>
+                                <div>
+                                    <p class="font-bold text-gray-900 text-sm group-hover:text-blue-600 transition leading-tight">${p.name}</p>
+                                    <p class="text-[10px] text-gray-400">${p.team}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-3 text-right">
+                            ${type === 'cards' ? valueDisplay : `<span class="text-xl font-black ${colorClass}">${valueDisplay}</span>`}
+                        </td>
+                    </tr>
+                `;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

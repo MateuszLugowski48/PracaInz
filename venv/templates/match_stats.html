@@ -5,9 +5,56 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
-    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Stylizacja boiska */
+        .football-pitch {
+            background-color: #4ade80;
+            background-image: 
+                linear-gradient(0deg, transparent 24%, rgba(255, 255, 255, .3) 25%, rgba(255, 255, 255, .3) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, .3) 75%, rgba(255, 255, 255, .3) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(255, 255, 255, .3) 25%, rgba(255, 255, 255, .3) 26%, transparent 27%, transparent 74%, rgba(255, 255, 255, .3) 75%, rgba(255, 255, 255, .3) 76%, transparent 77%, transparent);
+            background-size: 50px 50px;
+            position: relative;
+            border: 2px solid white;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        /* Linie boiska */
+        .pitch-line-center { position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: rgba(255,255,255,0.6); }
+        .pitch-circle-center { position: absolute; top: 50%; left: 50%; width: 80px; height: 80px; border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; transform: translate(-50%, -50%); }
+        .pitch-box-top { position: absolute; top: 0; left: 50%; width: 40%; height: 15%; border: 2px solid rgba(255,255,255,0.6); border-top: none; transform: translateX(-50%); background: rgba(255,255,255,0.1); }
+        .pitch-box-bottom { position: absolute; bottom: 0; left: 50%; width: 40%; height: 15%; border: 2px solid rgba(255,255,255,0.6); border-bottom: none; transform: translateX(-50%); background: rgba(255,255,255,0.1); }
+
+        /* Kropka zawodnika - POPRAWIONY CSS */
+        .player-dot {
+            position: absolute; 
+            transform: translate(-50%, -50%);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;       /* Poprawiono */
+            justify-content: center;   /* Poprawiono */
+            cursor: pointer; 
+            z-index: 10; 
+            transition: transform 0.2s;
+        }
+        .player-dot:hover { transform: translate(-50%, -50%) scale(1.2); z-index: 20; }
+        .player-number {
+            width: 28px; height: 28px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: bold; color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 2px solid white;
+        }
+        .player-name {
+            font-size: 9px; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.4); padding: 1px 4px; border-radius: 4px;
+            margin-top: 2px; white-space: nowrap; font-weight: 600;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10">
 
@@ -23,19 +70,16 @@
         </div>
 
         <div id="errorContainer" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
-            <strong class="font-bold">Błąd!</strong>
-            <span class="block sm:inline" id="errorText">Nie udało się pobrać danych.</span>
+            <strong class="font-bold">Błąd!</strong> <span class="block sm:inline" id="errorText"></span>
         </div>
 
         <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-6 mb-6 relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-red-500"></div>
-            
             <div class="flex justify-between items-center text-center">
                 <div id="homeTeamClick" class="cursor-pointer hover:opacity-80 transition flex-1 flex flex-col items-center">
                     <img id="homeLogo" class="w-16 h-16 object-contain mb-3 bg-gray-50 rounded-full p-1">
                     <h2 id="homeName" class="font-bold text-lg leading-tight">...</h2>
                 </div>
-
                 <div class="px-4">
                     <div id="matchStatus" class="text-xs font-bold text-gray-400 uppercase mb-1 tracking-widest">-</div>
                     <div class="text-4xl font-black text-gray-900 tracking-tighter mb-1">
@@ -43,7 +87,6 @@
                     </div>
                     <div id="matchTime" class="text-sm text-blue-600 font-mono font-medium"></div>
                 </div>
-
                 <div id="awayTeamClick" class="cursor-pointer hover:opacity-80 transition flex-1 flex flex-col items-center">
                     <img id="awayLogo" class="w-16 h-16 object-contain mb-3 bg-gray-50 rounded-full p-1">
                     <h2 id="awayName" class="font-bold text-lg leading-tight">...</h2>
@@ -51,26 +94,136 @@
             </div>
         </div>
 
-        <div class="flex space-x-2 mb-6 bg-white p-1 rounded-xl shadow-sm border border-gray-200 w-fit mx-auto">
-            <button onclick="setTab('stats')" id="btn-stats" class="px-6 py-2 rounded-lg text-sm font-bold transition bg-blue-600 text-white">Statystyki</button>
+        <div class="flex space-x-2 mb-6 bg-white p-1 rounded-xl shadow-sm border border-gray-200 w-fit mx-auto overflow-x-auto">
+            <button onclick="setTab('prediction')" id="btn-prediction" class="px-6 py-2 rounded-lg text-sm font-bold transition bg-purple-600 text-white shadow-md flex items-center whitespace-nowrap">
+                <span class="mr-2">🧠</span> Symulacja AI
+            </button>
+            <button onclick="setTab('stats')" id="btn-stats" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition">Statystyki</button>
             <button onclick="setTab('lineups')" id="btn-lineups" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition">Składy</button>
             <button onclick="setTab('events')" id="btn-events" class="px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition">Zdarzenia</button>
         </div>
 
-        <div id="tab-stats" class="space-y-4 animate-fade-in">
+        <div id="tab-prediction" class="space-y-6 animate-fade-in">
+            
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-lg text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-xl"></div>
+                <h3 class="text-xs font-bold uppercase tracking-widest text-indigo-200 mb-4">Sugerowany Wynik (Model Poissona)</h3>
+                
+                <div id="ai-score-container">
+                    <div class="text-5xl font-black tracking-tighter mb-1" id="ai-score">- : -</div>
+                </div>
+
+                <p class="text-indigo-100 text-xs opacity-80 mt-4">*Symulacja matematyczna</p>
+            </div>
+
+            <div id="value-bet-container" class="hidden bg-emerald-50 rounded-2xl p-5 border border-emerald-200 shadow-sm">
+                <div class="flex items-start">
+                    <span class="text-3xl mr-4">💎</span>
+                    <div>
+                        <h4 class="font-bold text-emerald-800 text-lg">Wykryto Value Bet!</h4>
+                        <p class="text-sm text-emerald-600 mt-1">Typ: <strong id="vb-type" class="text-emerald-900">-</strong> (Kurs: <span id="vb-odd" class="font-mono">-</span>)</p>
+                        <p class="text-xs text-emerald-500 mt-2">Matematyczna przewaga nad bukmacherem: <span id="vb-value" class="font-bold">+0%</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col items-center">
+                    <h4 class="font-bold text-gray-900 mb-4">Szanse na zwycięstwo</h4>
+                    <div class="w-48 h-48 relative">
+                        <canvas id="probChart"></canvas>
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span class="text-2xl font-bold text-gray-700" id="prob-winner-label">%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    <h4 class="font-bold text-gray-900 mb-4">Analiza i Trendy</h4>
+                    <div id="tips-grid" class="space-y-3"></div>
+                    <div class="mt-6 pt-4 border-t border-gray-100">
+                        <p class="text-xs font-bold text-gray-400 uppercase mb-1">Rada Eksperta</p>
+                        <p id="ai-advice" class="text-sm font-medium text-gray-800 italic">...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                 <h3 class="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide text-center">Balans Formy</h3>
+                 <div class="grid grid-cols-2 gap-4">
+                     <div>
+                        <p class="text-xs font-bold text-gray-400 mb-1">Gospodarze</p>
+                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div id="form-bar-home" class="bg-blue-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+                     </div>
+                     <div>
+                        <p class="text-xs font-bold text-gray-400 mb-1 text-right">Goście</p>
+                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden flex justify-end">
+                            <div id="form-bar-away" class="bg-red-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-stats" class="hidden space-y-6 animate-fade-in">
+            <div id="betting-section" class="hidden bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-gray-900 flex items-center">
+                        <span class="bg-yellow-100 text-yellow-600 p-1.5 rounded-lg mr-2 text-lg">💰</span>
+                        Kursy (1X2)
+                    </h3>
+                    <span id="bookie-name" class="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">Loading...</span>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-xl text-center border border-blue-100 group cursor-default">
+                        <p class="text-xs text-blue-400 uppercase font-bold mb-1">1 (Gosp)</p>
+                        <p id="odd-home" class="text-2xl font-black text-blue-700 mb-1">-</p>
+                        <span id="prob-home-label" class="text-[10px] bg-white px-2 py-0.5 rounded-full text-blue-600 font-bold shadow-sm">0%</span>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl text-center border border-gray-100 group cursor-default">
+                        <p class="text-xs text-gray-400 uppercase font-bold mb-1">X (Remis)</p>
+                        <p id="odd-draw" class="text-2xl font-black text-gray-600 mb-1">-</p>
+                        <span id="prob-draw-label" class="text-[10px] bg-white px-2 py-0.5 rounded-full text-gray-500 font-bold shadow-sm">0%</span>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl text-center border border-red-100 group cursor-default">
+                        <p class="text-xs text-red-400 uppercase font-bold mb-1">2 (Gość)</p>
+                        <p id="odd-away" class="text-2xl font-black text-red-700 mb-1">-</p>
+                        <span id="prob-away-label" class="text-[10px] bg-white px-2 py-0.5 rounded-full text-red-600 font-bold shadow-sm">0%</span>
+                    </div>
+                </div>
+                <div class="mt-5">
+                    <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
+                        <div id="bar-home" class="h-full bg-blue-500 transition-all duration-1000" style="width: 0%"></div>
+                        <div id="bar-draw" class="h-full bg-gray-300 transition-all duration-1000" style="width: 0%"></div>
+                        <div id="bar-away" class="h-full bg-red-500 transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <p class="text-[10px] text-center text-gray-400 mt-2 italic">* Szanse wyliczone na podstawie kursów.</p>
+                </div>
+            </div>
+
             <div id="statsContainer" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <p class="text-center text-gray-400 italic">Pobieranie statystyk...</p>
             </div>
         </div>
 
-        <div id="tab-lineups" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-                <h3 class="font-bold text-gray-900 mb-4 border-b pb-2" id="homeLineupHeader">Gospodarze</h3>
-                <div id="homeLineupList" class="space-y-2 text-sm"></div>
+        <div id="tab-lineups" class="hidden animate-fade-in">
+             <div class="bg-green-600 rounded-xl p-2 shadow-lg border-4 border-green-700 mb-8 relative">
+                <div class="football-pitch h-[600px] w-full rounded-lg relative">
+                    <div class="pitch-line-center"></div><div class="pitch-circle-center"></div>
+                    <div class="pitch-box-top"></div><div class="pitch-box-bottom"></div>
+                    <div id="pitch-home" class="absolute top-0 left-0 w-full h-1/2"></div>
+                    <div id="pitch-away" class="absolute bottom-0 left-0 w-full h-1/2"></div>
+                </div>
+                <div class="flex justify-between px-4 py-2 text-white text-xs font-bold mt-2">
+                    <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-blue-600 border border-white mr-2"></div><span id="pitchHomeName">Gospodarze</span></div>
+                    <div class="flex items-center"><span id="pitchAwayName">Goście</span><div class="w-3 h-3 rounded-full bg-red-600 border border-white ml-2"></div></div>
+                </div>
             </div>
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-                <h3 class="font-bold text-gray-900 mb-4 border-b pb-2" id="awayLineupHeader">Goście</h3>
-                <div id="awayLineupList" class="space-y-2 text-sm"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-white rounded-xl p-4 border border-gray-200"><h4 class="text-xs font-bold uppercase text-gray-400 mb-3">Rezerwowi (Gosp)</h4><div id="subs-home" class="space-y-2 text-sm"></div></div>
+                <div class="bg-white rounded-xl p-4 border border-gray-200"><h4 class="text-xs font-bold uppercase text-gray-400 mb-3">Rezerwowi (Gość)</h4><div id="subs-away" class="space-y-2 text-sm"></div></div>
             </div>
         </div>
 
@@ -83,200 +236,235 @@
     </div>
 
     <script>
-        // Poprawka: Bezpieczniejsze rzutowanie na liczbę
         const fixtureId = Number("{{ fixture_id }}");
+        let probChartInstance = null;
 
         async function loadMatch() {
             try {
                 const res = await fetch(`/api/match-details/${fixtureId}`);
-                
-                if (!res.ok) throw new Error("Błąd sieci lub serwera.");
-                
+                if (!res.ok) throw new Error("Błąd sieci.");
                 const data = await res.json();
-                
-                // KLUCZOWA POPRAWKA: Sprawdzamy czy dane są poprawne
-                if(!data || !data.teams || Object.keys(data).length === 0) {
-                    showError("Nie udało się pobrać szczegółów tego meczu. (Brak danych w API)");
-                    return;
+                if(!data || !data.teams) { showError("Brak danych."); return; }
+                renderHeader(data); renderStats(data); renderPitch(data); renderEvents(data);
+            } catch(e) { showError("Błąd ładowania danych."); }
+        }
+
+        async function loadOdds() {
+            try {
+                const res = await fetch(`/api/match-odds/${fixtureId}`);
+                const data = await res.json();
+                if (res.ok && !data.error) {
+                    document.getElementById('bookie-name').innerText = data.bookie_name;
+                    document.getElementById('odd-home').innerText = data.home;
+                    document.getElementById('odd-draw').innerText = data.draw;
+                    document.getElementById('odd-away').innerText = data.away;
+                    
+                    let pH = 1/parseFloat(data.home), pD = 1/parseFloat(data.draw), pA = 1/parseFloat(data.away);
+                    let total = pH+pD+pA;
+                    
+                    const setBar = (id, val) => {
+                        const pct = Math.round((val/total)*100);
+                        document.getElementById(id).style.width = pct + "%";
+                        document.getElementById('prob-'+id.split('-')[1]+'-label').innerText = pct + "%";
+                    };
+                    setBar('bar-home', pH); setBar('bar-draw', pD); setBar('bar-away', pA);
+                    document.getElementById('betting-section').classList.remove('hidden');
                 }
-
-                renderHeader(data);
-                renderStats(data);
-                renderLineups(data);
-                renderEvents(data);
-
-            } catch(e) { 
-                console.error(e);
-                showError("Wystąpił błąd połączenia. Spróbuj odświeżyć stronę.");
-            }
+            } catch (e) {}
         }
 
-        function showError(msg) {
-            document.getElementById("statsContainer").innerHTML = '';
-            const errDiv = document.getElementById("errorContainer");
-            document.getElementById("errorText").textContent = msg;
-            errDiv.classList.remove("hidden");
+        async function loadPredictions() {
+            try {
+                const res = await fetch(`/api/match-predictions/${fixtureId}`);
+                const data = await res.json();
+
+                if (res.ok && !data.error) {
+                    document.getElementById('ai-advice').innerText = data.advice;
+
+                    // NOWA OBSŁUGA TOP 3 WYNIKÓW
+                    const scoreContainer = document.getElementById('ai-score-container');
+                    scoreContainer.innerHTML = ""; 
+
+                    if(data.top_scores && data.top_scores.length > 0) {
+                        const main = data.top_scores[0];
+                        scoreContainer.innerHTML += `
+                            <div class="text-5xl font-black tracking-tighter mb-1">${main.score}</div>
+                            <div class="text-sm bg-white/20 inline-block px-3 py-1 rounded-lg font-bold mb-4">Prawdopodobieństwo: ${main.prob_pct}</div>
+                            <div class="flex justify-center gap-4 mt-2">
+                                ${data.top_scores.slice(1).map(s => `
+                                    <div class="bg-black/20 rounded-lg px-3 py-2 text-center backdrop-blur-sm">
+                                        <div class="text-sm font-bold text-indigo-100">${s.score}</div>
+                                        <div class="text-[10px] text-indigo-300">${s.prob_pct}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else {
+                        scoreContainer.innerHTML = '<div class="text-xl">- : -</div>';
+                    }
+
+                    // Wykres kołowy
+                    const ctx = document.getElementById('probChart').getContext('2d');
+                    const pHome = parseInt(data.percent.home.replace('%','')) || 0;
+                    const pDraw = parseInt(data.percent.draw.replace('%','')) || 0;
+                    const pAway = parseInt(data.percent.away.replace('%','')) || 0;
+                    
+                    const maxVal = Math.max(pHome, pDraw, pAway);
+                    let label = "Remis";
+                    if(maxVal === pHome) label = "1";
+                    if(maxVal === pAway) label = "2";
+                    document.getElementById('prob-winner-label').innerText = label;
+
+                    if(probChartInstance) probChartInstance.destroy();
+                    probChartInstance = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Gospodarze', 'Remis', 'Goście'],
+                            datasets: [{
+                                data: [pHome, pDraw, pAway],
+                                backgroundColor: ['#2563eb', '#d1d5db', '#dc2626'],
+                                borderWidth: 0
+                            }]
+                        },
+                        options: { cutout: '70%', plugins: { legend: { display: false } } }
+                    });
+
+                    // Value Bets
+                    if(data.value_bets && data.value_bets.length > 0) {
+                        const bestBet = data.value_bets.sort((a, b) => b.value - a.value)[0];
+                        const container = document.getElementById('value-bet-container');
+                        container.classList.remove('hidden');
+                        
+                        if(bestBet.type === 'OVER' || bestBet.type === 'BTTS') {
+                             container.className = "bg-gradient-to-r from-orange-500 to-pink-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-orange-400 mb-6 animate-fade-in";
+                        } else {
+                             container.className = "bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden border border-emerald-500 mb-6 animate-fade-in";
+                        }
+
+                        document.getElementById('vb-value').innerText = `+${bestBet.value}%`;
+                        document.getElementById('vb-type').innerText = bestBet.label;
+                        document.getElementById('vb-odd').innerText = bestBet.odd;
+                    }
+
+                    // Trendy
+                    const tipsGrid = document.getElementById('tips-grid');
+                    tipsGrid.innerHTML = "";
+                    if(data.stats_tips && data.stats_tips.length > 0) {
+                        data.stats_tips.forEach(tip => {
+                            tipsGrid.innerHTML += `
+                                <div class="flex items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    <div class="bg-white p-2 rounded-full shadow-sm text-xl mr-3">🔥</div>
+                                    <div>
+                                        <p class="text-sm font-bold text-gray-900">${tip.label}</p>
+                                        <p class="text-xs text-gray-500">${tip.desc}</p>
+                                    </div>
+                                </div>`;
+                        });
+                    } else { tipsGrid.innerHTML = '<p class="text-sm text-gray-400">Brak wyraźnych trendów.</p>'; }
+                    
+                    // Form bars
+                    if(data.comparison && data.comparison.form) {
+                        document.getElementById('form-bar-home').style.width = data.comparison.form.home;
+                        document.getElementById('form-bar-away').style.width = data.comparison.form.away;
+                    }
+                }
+            } catch (e) { console.log("Brak predykcji:", e); }
         }
 
+        // --- Renderery (skrócone) ---
         function renderHeader(d) {
             if(d.league) document.getElementById("leagueHeader").textContent = `${d.league.name} • ${d.league.round || ''}`;
-            
             document.getElementById("homeName").textContent = d.teams.home.name;
             document.getElementById("homeLogo").src = d.teams.home.logo;
             document.getElementById("awayName").textContent = d.teams.away.name;
             document.getElementById("awayLogo").src = d.teams.away.logo;
-
             document.getElementById("scoreHome").textContent = d.goals.home ?? 0;
             document.getElementById("scoreAway").textContent = d.goals.away ?? 0;
             document.getElementById("matchStatus").textContent = d.fixture.status.long;
-            
             const date = new Date(d.fixture.date).toLocaleDateString();
             const time = d.fixture.status.elapsed ? `${d.fixture.status.elapsed}'` : date;
             document.getElementById("matchTime").textContent = time;
-
-            // Linki do profili
             document.getElementById("homeTeamClick").onclick = () => window.location.href = `/team/${d.teams.home.id}`;
             document.getElementById("awayTeamClick").onclick = () => window.location.href = `/team/${d.teams.away.id}`;
         }
 
         function renderStats(d) {
             const container = document.getElementById("statsContainer");
-            if(!d.statistics || d.statistics.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-400">Brak danych statystycznych dla tego meczu.</p>';
-                return;
-            }
-
+            if(!d.statistics || d.statistics.length === 0) { container.innerHTML = '<p class="text-center text-gray-400">Brak danych.</p>'; return; }
             const statsMap = {};
-            d.statistics.forEach(teamStats => {
-                const isHome = teamStats.team.id === d.teams.home.id;
-                teamStats.statistics.forEach(s => {
-                    if(!statsMap[s.type]) statsMap[s.type] = { home: 0, away: 0, name: s.type };
-                    if(isHome) statsMap[s.type].home = s.value ?? 0;
-                    else statsMap[s.type].away = s.value ?? 0;
+            d.statistics.forEach(ts => {
+                const isHome = ts.team.id === d.teams.home.id;
+                ts.statistics.forEach(s => {
+                    if(!statsMap[s.type]) statsMap[s.type] = { home: 0, away: 0 };
+                    if(isHome) statsMap[s.type].home = s.value ?? 0; else statsMap[s.type].away = s.value ?? 0;
                 });
             });
-
-            const translation = {
-                "Ball Possession": "Posiadanie piłki", "Shots on Goal": "Strzały celne",
-                "Shots off Goal": "Strzały niecelne", "Total Shots": "Wszystkie strzały",
-                "Corner Kicks": "Rzuty rożne", "Fouls": "Faule", "Yellow Cards": "Żółte kartki",
-                "Red Cards": "Czerwone kartki", "Goalkeeper Saves": "Parady bramkarza", "Passes %": "Celność podań"
-            };
-
+            const trans = { "Ball Possession": "Posiadanie", "Shots on Goal": "Celne", "Total Shots": "Strzały", "Corner Kicks": "Rożne", "Fouls": "Faule", "Yellow Cards": "Żółte" };
             let html = "";
             for (const [key, stat] of Object.entries(statsMap)) {
-                const total = (parseFloat(String(stat.home).replace('%','')) || 0) + (parseFloat(String(stat.away).replace('%','')) || 0);
-                let hPerc = 50, aPerc = 50;
-                
-                if(total > 0) {
-                    hPerc = ((parseFloat(String(stat.home).replace('%','')) || 0) / total) * 100;
-                    aPerc = 100 - hPerc;
-                }
-
-                const name = translation[key] || key;
-                
-                html += `
-                    <div class="mb-5 last:mb-0">
-                        <div class="flex justify-between text-xs font-bold text-gray-500 uppercase mb-1">
-                            <span>${stat.home}</span>
-                            <span>${name}</span>
-                            <span>${stat.away}</span>
-                        </div>
-                        <div class="flex h-2.5 rounded-full overflow-hidden bg-gray-100">
-                            <div class="bg-blue-500 h-full" style="width: ${hPerc}%"></div>
-                            <div class="bg-red-500 h-full" style="width: ${aPerc}%"></div>
-                        </div>
-                    </div>
-                `;
+                const total = (parseFloat(String(stat.home))||0) + (parseFloat(String(stat.away))||0);
+                let hp = 50, ap = 50;
+                if(total>0) { hp = ((parseFloat(String(stat.home))||0)/total)*100; ap=100-hp; }
+                html += `<div class="mb-4"><div class="flex justify-between text-xs font-bold text-gray-500 uppercase mb-1"><span>${stat.home}</span><span>${trans[key]||key}</span><span>${stat.away}</span></div><div class="flex h-2 rounded-full overflow-hidden bg-gray-100"><div class="bg-blue-500" style="width:${hp}%"></div><div class="bg-red-500" style="width:${ap}%"></div></div></div>`;
             }
             container.innerHTML = html;
         }
 
-        function renderLineups(d) {
-            if(!d.lineups || d.lineups.length === 0) {
-                document.getElementById("tab-lineups").innerHTML = '<div class="p-6 text-center text-gray-400 w-full">Składy niedostępne.</div>';
-                return;
-            }
-            
-            d.lineups.forEach(l => {
-                const isHome = l.team.id === d.teams.home.id;
-                const headerId = isHome ? "homeLineupHeader" : "awayLineupHeader";
-                const listId = isHome ? "homeLineupList" : "awayLineupList";
-                
-                document.getElementById(headerId).innerHTML = `${l.team.name} <span class="text-xs font-normal text-gray-500 ml-2">(${l.formation})</span>`;
-                
-                const list = document.getElementById(listId);
-                list.innerHTML = `
-                    <div class="text-xs font-bold text-gray-400 uppercase mt-2 mb-1">Wyjściowa 11</div>
-                    ${l.startXI.map(p => `
-                        <div onclick="window.location.href='/player/${p.player.id}'" class="flex items-center py-1 cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition rounded px-1 group">
-                            <span class="w-6 text-gray-400 text-xs text-right mr-3 group-hover:text-blue-400 font-mono">${p.player.number}</span>
-                            <span class="font-medium">${p.player.name}</span>
-                        </div>
-                    `).join('')}
-                    
-                    <div class="text-xs font-bold text-gray-400 uppercase mt-4 mb-1">Rezerwowi</div>
-                    ${l.substitutes.map(p => `
-                        <div onclick="window.location.href='/player/${p.player.id}'" class="flex items-center py-1 text-gray-500 cursor-pointer hover:bg-blue-50 hover:text-blue-600 transition rounded px-1 group">
-                            <span class="w-6 text-gray-300 text-xs text-right mr-3 group-hover:text-blue-400 font-mono">${p.player.number}</span>
-                            <span>${p.player.name}</span>
-                        </div>
-                    `).join('')}
-                    
-                    <div class="text-xs font-bold text-gray-400 uppercase mt-4 mb-1">Trener</div>
-                    <div class="py-1 font-semibold">${l.coach.name}</div>
-                `;
+        function renderPitch(d) {
+            if(!d.lineups || d.lineups.length < 2) { document.getElementById("tab-lineups").innerHTML = '<div class="p-10 text-center text-gray-400">Brak składów.</div>'; return; }
+            const home = d.lineups[0], away = d.lineups[1];
+            document.getElementById("pitchHomeName").innerText = home.team.name;
+            document.getElementById("pitchAwayName").innerText = away.team.name;
+            drawPlayers(home.startXI, 'pitch-home', true); drawPlayers(away.startXI, 'pitch-away', false);
+            renderSubs(home.substitutes, 'subs-home'); renderSubs(away.substitutes, 'subs-away');
+        }
+
+        function drawPlayers(players, cid, isHome) {
+            const c = document.getElementById(cid); c.innerHTML=""; const lines={};
+            players.forEach(p=>{ if(!p.player.grid)return; const r=p.player.grid.split(':')[0]; if(!lines[r])lines[r]=[]; lines[r].push(p.player); });
+            if(!Object.keys(lines).length){c.innerHTML="<div class='text-white text-center pt-10 opacity-50'>Brak gridu</div>";return;}
+            const maxR = Math.max(...Object.keys(lines).map(Number));
+            Object.keys(lines).forEach(rNum => {
+                const line = lines[rNum].sort((a,b)=>parseInt(a.grid.split(':')[1])-parseInt(b.grid.split(':')[1]));
+                line.forEach((p,i)=>{
+                    const d=document.createElement('div'); d.className="player-dot"; d.onclick=()=>window.location.href=`/player/${p.id}`;
+                    const tp = isHome ? (rNum/(maxR+1))*100 : 100-((rNum/(maxR+1))*100);
+                    d.style.top=`${tp}%`; d.style.left=`${((i+1)/(line.length+1))*100}%`;
+                    d.innerHTML=`<div class="player-number ${isHome?'bg-blue-600 border-blue-200':'bg-red-600 border-red-200'}">${p.number}</div><div class="player-name">${p.name.split(' ').pop()}</div>`;
+                    c.appendChild(d);
+                });
             });
         }
+        function renderSubs(s,id){ document.getElementById(id).innerHTML=s.map(p=>`<div onclick="window.location.href='/player/${p.player.id}'" class="flex items-center cursor-pointer hover:text-blue-600 py-1"><span class="text-gray-400 w-6 text-right mr-2 text-xs">${p.player.number}</span><span class="font-medium">${p.player.name}</span></div>`).join(''); }
 
         function renderEvents(d) {
             const tl = document.getElementById("eventsTimeline");
-            if(!d.events || d.events.length === 0) {
-                tl.innerHTML = '<p class="text-gray-400 italic">Brak zdarzeń.</p>'; return;
-            }
-
-            let html = "";
-            d.events.forEach(e => {
+            if(!d.events||!d.events.length){tl.innerHTML='<p class="text-gray-400">Brak zdarzeń.</p>';return;}
+            tl.innerHTML = d.events.map(e => {
                 const isHome = e.team.id === d.teams.home.id;
-                const sideClass = isHome ? "text-left" : "text-right";
-                const alignClass = isHome ? "items-start" : "items-end";
-                
-                let icon = "⚽";
-                if(e.type === "Card") icon = e.detail === "Yellow Card" ? "🟨" : "🟥";
-                if(e.type === "subst") icon = "🔄";
-                if(e.type === "Var") icon = "📺";
-
-                html += `
-                    <div class="mb-6 ml-6 relative group">
-                        <span class="absolute -left-10 top-0 w-8 h-8 rounded-full bg-white border-2 border-blue-100 flex items-center justify-center font-bold text-xs text-blue-600 z-10">${e.time.elapsed}'</span>
-                        <div class="flex flex-col ${alignClass}">
-                            <div class="bg-white p-3 rounded-lg border border-gray-100 shadow-sm max-w-xs w-full">
-                                <div class="flex items-center mb-1 ${isHome ? '' : 'flex-row-reverse'}">
-                                    <span class="text-lg mx-2">${icon}</span>
-                                    <span class="font-bold text-sm text-gray-900">${e.player.name}</span>
-                                </div>
-                                <div class="text-xs text-gray-500 px-2 ${sideClass}">
-                                    ${e.type === 'subst' ? `Zmienia: ${e.assist.name}` : e.detail}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            tl.innerHTML = html;
+                let icon="⚽"; if(e.type==="Card") icon=e.detail==="Yellow Card"?"🟨":"🟥"; if(e.type==="subst") icon="🔄";
+                return `<div class="mb-4 ml-6 relative"><span class="absolute -left-10 top-0 w-8 h-8 rounded-full bg-white border flex items-center justify-center font-bold text-xs text-gray-600">${e.time.elapsed}'</span><div class="flex flex-col ${isHome?'items-start':'items-end'}"><div class="bg-white p-2 rounded border shadow-sm flex items-center ${isHome?'':'flex-row-reverse'} gap-2"><span>${icon}</span> <span class="text-sm font-bold">${e.player.name}</span></div></div></div>`;
+            }).join('');
         }
 
-        function setTab(tabName) {
-            ['stats', 'lineups', 'events'].forEach(t => {
+        function setTab(name) {
+            ['prediction','stats','lineups','events'].forEach(t=>{
                 document.getElementById(`tab-${t}`).classList.add('hidden');
                 const btn = document.getElementById(`btn-${t}`);
                 btn.className = "px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition";
+                if(t==='prediction') btn.classList.remove('text-white','bg-purple-600');
             });
-            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-            document.getElementById(`btn-${tabName}`).className = "px-6 py-2 rounded-lg text-sm font-bold transition bg-blue-600 text-white shadow-md";
+            document.getElementById(`tab-${name}`).classList.remove('hidden');
+            const btn = document.getElementById(`btn-${name}`);
+            if(name==='prediction') btn.classList.add('bg-purple-600','text-white');
+            else btn.classList.add('bg-blue-600','text-white');
         }
 
+        function showError(m) { document.getElementById('errorContainer').classList.remove('hidden'); document.getElementById('errorText').innerText=m; }
+
         loadMatch();
+        loadOdds();
+        loadPredictions();
     </script>
 </body>
 </html>
