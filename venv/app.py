@@ -17,6 +17,7 @@ FIXTURES_CACHE = {}
 MATCH_CACHE = {}
 TEAM_PROFILE_CACHE = {}
 PLAYER_CACHE = {}
+SCORERS_CACHE = {}
 
 LIVE_CACHE_TIME = 60 
 TEAM_FORM_CACHE_TIME = 300 
@@ -554,6 +555,45 @@ def get_player_data(player_id):
     except Exception as e:
         print(f"Error fetching player data: {e}")
         return jsonify({})
+    
+# --- TOP SCORERS ROUTE ---
+
+@app.route('/api/top-scorers/<int:league_id>')
+def get_top_scorers(league_id):
+    season = request.args.get('season', default=get_current_season(), type=int)
+    cache_key = f"{league_id}_{season}"
+    now = time.time()
+    
+    # Cache na 1 godzinę (3600s) - lista strzelców nie zmienia się tak często
+    if cache_key in SCORERS_CACHE and now - SCORERS_CACHE[cache_key]['time'] < 3600:
+        return jsonify(SCORERS_CACHE[cache_key]['data'])
+
+    try:
+        url = f"{BASE_URL}/players/topscorers?league={league_id}&season={season}"
+        response = requests.get(url, headers=HEADERS)
+        data = response.json()
+        
+        scorers = []
+        for item in data.get("response", [])[:10]: # Pobierz tylko top 10
+            p = item['player']
+            s = item['statistics'][0]
+            scorers.append({
+                "rank": len(scorers) + 1,
+                "id": p['id'],
+                "name": p['name'],
+                "photo": p['photo'],
+                "team": s['team']['name'],
+                "team_logo": s['team']['logo'],
+                "goals": s['goals']['total'] or 0,
+                "assists": s['goals']['assists'] or 0,
+                "matches": s['games']['appearences'] or 0
+            })
+            
+        SCORERS_CACHE[cache_key] = {'time': now, 'data': scorers}
+        return jsonify(scorers)
+    except Exception as e:
+        print(f"Error fetching top scorers: {e}")
+        return jsonify([])
 
 if __name__ == "__main__":
     app.run(debug=True)

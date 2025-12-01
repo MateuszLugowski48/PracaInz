@@ -14,48 +14,13 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* --- CSS DRZEWKA (REKURENCYJNE) --- */
-        /* Pojedynczy węzeł: [Dzieci (z lewej)] --- [Mecz] */
-        .node-wrapper {
-            display: flex;
-            align-items: center;
-        }
-
-        /* Kontener na gałęzie wchodzące do meczu (np. 2 półfinały) */
-        .branch-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            margin-right: 2rem; /* Odstęp poziomy linii */
-            position: relative;
-        }
-
-        /* Pozioma linia łącząca gałąź z rodzicem */
-        .connector-horizontal {
-            width: 2rem;
-            height: 2px;
-            background-color: #cbd5e1; /* gray-300 */
-        }
-
-        /* Pionowa klamra łącząca dzieci */
-        .bracket-brace {
-            position: absolute;
-            right: 0;
-            width: 2px;
-            background-color: #cbd5e1;
-            /* Wysokość klamry będzie automatycznie wynikać z wysokości kontenera, 
-               ale musimy ją ograniczyć, żeby nie wychodziła poza środki dzieci. 
-               Używamy tricku z marginesami na dzieciach. */
-            top: 25%; bottom: 25%; /* Działa dla 2 dzieci o równej wysokości */
-        }
-        
-        /* Jeśli jest tylko 1 dziecko (np. brak meczu w parze), ukrywamy klamrę */
+        .node-wrapper { display: flex; align-items: center; }
+        .branch-container { display: flex; flex-direction: column; justify-content: center; margin-right: 2rem; position: relative; }
+        .connector-horizontal { width: 2rem; height: 2px; background-color: #cbd5e1; }
+        .bracket-brace { position: absolute; right: 0; width: 2px; background-color: #cbd5e1; top: 25%; bottom: 25%; }
         .branch-container.single-child .bracket-brace { display: none; }
-        /* I rysujemy prostą linię */
-        .branch-container.single-child::after {
-            content: ''; position: absolute; right: 0; top: 50%; width: 10px; height: 2px; background: #cbd5e1;
-        }
+        .branch-container.single-child::after { content: ''; position: absolute; right: 0; top: 50%; width: 10px; height: 2px; background: #cbd5e1; }
 
-        /* Karta Meczu */
         .match-card {
             width: 15rem;
             background: white;
@@ -68,8 +33,6 @@
             transition: transform 0.2s, border-color 0.2s;
         }
         .match-card:hover { transform: scale(1.02); border-color: #3b82f6; z-index: 20; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-
-        /* Wyróżnienie finału */
         .final-card { border-color: #facc15; background-color: #fefce8; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
@@ -119,23 +82,41 @@
                 <button onclick="switchTab('bracket')" id="tab-bracket" class="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                     🏆 Drabinka Pucharowa
                 </button>
+                <!-- NOWA ZAKŁADKA: Królowie Strzelców -->
+                <button onclick="switchTab('scorers')" id="tab-scorers" class="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                    ⚽ Królowie Strzelców
+                </button>
             </nav>
         </div>
 
+        <!-- STANDINGS VIEW -->
         <div id="view-standings" class="fade-in max-w-6xl mx-auto">
             <div id="tablesContainer" class="space-y-8"><div class="text-center py-12 text-gray-400 italic">Wyszukaj ligę powyżej.</div></div>
             <div id="legend" class="mt-6 flex flex-wrap gap-3 text-xs text-gray-600 px-2"></div>
         </div>
 
+        <!-- RESULTS VIEW -->
         <div id="view-results" class="hidden fade-in max-w-5xl mx-auto">
             <div id="resultsContainer" class="space-y-4"></div>
         </div>
 
+        <!-- BRACKET VIEW -->
         <div id="view-bracket" class="hidden fade-in">
             <div id="bracketWrapper" class="w-full overflow-x-auto pb-6 flex justify-center">
                 <div id="bracketContainer" class="p-10 flex items-center"></div>
             </div>
             <div id="bracketMessage" class="hidden text-center text-gray-400 py-12">Brak fazy pucharowej dla tych rozgrywek.</div>
+        </div>
+
+        <!-- SCORERS VIEW (Nowa zakładka) -->
+        <div id="view-scorers" class="hidden fade-in max-w-4xl mx-auto">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div id="scorersContainer" class="divide-y divide-gray-100">
+                    <div class="p-6 text-center text-gray-400 italic">
+                        Wybierz ligę, aby zobaczyć listę królów strzelców.
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -144,9 +125,7 @@
         // --- KONFIGURACJA I SEZONY ---
         const currentYear = new Date().getFullYear();
         const minYear = 2020; // OGRANICZENIE DO 2020
-        const seasons = [];
-        for (let y = currentYear + 1; y >= minYear; y--) { seasons.push(y); }
-        
+
         let searchTimeout = null;
 
         const translations = {
@@ -156,13 +135,11 @@
             "Knockout Round Play-offs": "Baraże o 1/8", "Round of 16 Play-offs": "Baraże o 1/8"
         };
 
-        // Mapa rodzic -> dziecko (do szukania wstecz)
         const prevRoundMap = {
             "Final": "Semi-finals", "Semi-finals": "Quarter-finals", "Quarter-finals": "Round of 16",
             "Round of 16": "Round of 32", "Round of 32": "Round of 64"
         };
         
-        // Priorytety do znajdowania korzenia drzewa
         const roundPriority = ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32"];
 
         function normalizeRoundName(roundName) {
@@ -186,16 +163,15 @@
 
         function init() {
             const s = document.getElementById("seasonSelect");
-            
             const maxYear = 2025; 
-            const minYear = 2020;
-            
+            const minYearLocal = 2020;
             const seasons = [];
-            for (let y = maxYear; y >= minYear; y--) { 
-                seasons.push(y); 
-            }
+            for (let y = maxYear; y >= minYearLocal; y--) { seasons.push(y); }
             seasons.forEach(y => s.add(new Option(`${y}/${y+1}`, y)));
             s.value = 2025;
+
+            // ustawienie domyślnej zakładki (Tabela)
+            switchTab('standings');
         }
 
         // --- LOGIKA KOLORÓW (Poprawiona) ---
@@ -228,7 +204,7 @@
                 if (rank <= 24) return "border-l-4 border-green-400 bg-green-50";
                 return "border-transparent";
             }
-            if (rank <= 1) return "border-l-4 border-green-600 bg-green-100"; // W starej LK tylko 1. wychodził
+            if (rank <= 1) return "border-l-4 border-green-600 bg-green-100";
             if (rank === 2) return "border-l-4 border-green-400 bg-green-50";
             return "border-transparent";
         }
@@ -245,9 +221,50 @@
             return "border-transparent";
         }
 
-        // --- FETCH ---
-        function handleLeagueSearch() { clearTimeout(searchTimeout); const q = document.getElementById("leagueSearchInput").value; const r = document.getElementById("leagueSearchResults"); if (q.length < 3) { r.classList.add('hidden'); return; } searchTimeout = setTimeout(async () => { try { const res = await fetch(`/search-leagues?q=${q}`); const data = await res.json(); r.innerHTML = ''; if(data.length>0){r.classList.remove('hidden');data.forEach(l=>{const d=document.createElement('div');d.className="flex items-center px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50";d.innerHTML=`<img src="${l.logo}" class="w-6 h-6 mr-3 object-contain"><div class="text-sm font-bold">${l.name}<br><span class="text-xs text-gray-500 font-normal">${l.country}</span></div>`;d.onclick=()=>{document.getElementById("selectedLeagueId").value=l.id;document.getElementById("selectedLeagueName").value=l.name;document.getElementById("leagueSearchInput").value=l.name;r.classList.add('hidden');loadData();};r.appendChild(d);});}else r.classList.add('hidden'); } catch(e) {} }, 300); }
-        function loadData() { const lid = document.getElementById("selectedLeagueId").value; const seas = document.getElementById("seasonSelect").value; const lname = document.getElementById("selectedLeagueName").value; if(!lid) return; document.getElementById("pageTitle").textContent = `${lname} (${seas}/${parseInt(seas)+1})`; loadStandings(lid, seas); loadFixtures(lid, seas); }
+        // --- FETCH / SEARCH ---
+        function handleLeagueSearch() {
+            clearTimeout(searchTimeout);
+            const q = document.getElementById("leagueSearchInput").value;
+            const r = document.getElementById("leagueSearchResults");
+            if (q.length < 3) { r.classList.add('hidden'); return; }
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/search-leagues?q=${encodeURIComponent(q)}`);
+                    const data = await res.json();
+                    r.innerHTML = '';
+                    if(data.length>0){
+                        r.classList.remove('hidden');
+                        data.forEach(l=>{
+                            const d=document.createElement('div');
+                            d.className="flex items-center px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50";
+                            d.innerHTML=`<img src="${l.logo}" class="w-6 h-6 mr-3 object-contain"><div class="text-sm font-bold">${l.name}<br><span class="text-xs text-gray-500 font-normal">${l.country}</span></div>`;
+                            d.onclick=()=>{
+                                document.getElementById("selectedLeagueId").value=l.id;
+                                document.getElementById("selectedLeagueName").value=l.name;
+                                document.getElementById("leagueSearchInput").value=l.name;
+                                r.classList.add('hidden');
+                                loadData();
+                            };
+                            r.appendChild(d);
+                        });
+                    } else r.classList.add('hidden');
+                } catch(e) {
+                    // silently ignore search errors for UX
+                    r.classList.add('hidden');
+                }
+            }, 300);
+        }
+
+        function loadData() {
+            const lid = document.getElementById("selectedLeagueId").value;
+            const seas = document.getElementById("seasonSelect").value;
+            const lname = document.getElementById("selectedLeagueName").value;
+            if(!lid) return;
+            document.getElementById("pageTitle").textContent = `${lname} (${seas}/${parseInt(seas)+1})`;
+            loadStandings(lid, seas);
+            loadFixtures(lid, seas);
+            loadScorers(lid, seas); // <-- nowe: ładujemy strzelców razem z resztą
+        }
 
         // --- RENDER TABELA ---
         async function loadStandings(lid, seas) {
@@ -266,7 +283,6 @@
                         else if (leagueName.includes("conference league")) styleClass = getStyleForUECL(r.rank, r.description, rows.length);
                         else styleClass = getStyleForDomestic(r.rank, r.description, rows.length);
                         
-                        // ZMIANA PONIŻEJ: Dodano onclick do span z nazwą drużyny (event.stopPropagation zapobiega konfliktom)
                         return `<tr class="hover:bg-gray-50 transition group search-row" data-team="${r.team.toLowerCase()}">
                             <td class="px-4 py-4 text-center font-bold text-gray-600 ${styleClass}">${r.rank}</td>
                             <td class="px-4 py-4 flex items-center">
@@ -307,7 +323,6 @@
                     groups[norm].push(m);
                 });
 
-                // 1. Lista
                 const bracketKeys = ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32", "Round of 64"];
                 const listRounds = Object.keys(groups).filter(k => !bracketKeys.includes(k));
                 if(listRounds.length === 0) resCont.innerHTML = '<div class="text-center py-8 text-gray-400 italic">Brak meczów fazy grupowej/eliminacyjnej.</div>';
@@ -319,12 +334,8 @@
                     resCont.innerHTML += html;
                 });
 
-                // 2. Drabinka (Tree from Final)
-                // Znajdź korzeń drzewa (najdalsza dostępna runda)
                 let rootRound = null;
-                for(let r of roundPriority) { // Priority: Final -> Semi -> Quarter ...
-                    if(groups[r]) { rootRound = r; break; }
-                }
+                for(let r of roundPriority) { if(groups[r]) { rootRound = r; break; } }
 
                 if(!rootRound) {
                     brackMsg.classList.remove("hidden");
@@ -352,7 +363,6 @@
                     };
                 }
                 tiesMap[key].matches.push(m);
-                // Zbieramy flagi winner
                 if(m.home_winner) { if(m.home_id === tiesMap[key].team1_id) tiesMap[key].winner1=true; else tiesMap[key].winner2=true; }
                 if(m.away_winner) { if(m.away_id === tiesMap[key].team1_id) tiesMap[key].winner1=true; else tiesMap[key].winner2=true; }
             });
@@ -386,7 +396,6 @@
 
         // --- BUDOWANIE DRZEWA (REKURENCJA) ---
         function renderRecursiveBracket(groups, rootRoundName, container) {
-            // Przygotuj dane (agregacja)
             const roundsData = {};
             ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32", "Round of 64"].forEach(r => {
                 if(groups[r]) roundsData[r] = aggregateTies(groups[r], r===rootRoundName);
@@ -406,7 +415,6 @@
                     const p1 = match.isTie ? match.team1_id : match.home_id;
                     const p2 = match.isTie ? match.team2_id : match.away_id;
 
-                    // Szukaj dzieci
                     let source1 = roundsData[prevRound].find(m => (m.winner_id === p1));
                     let source2 = roundsData[prevRound].find(m => (m.winner_id === p2));
                     
@@ -442,7 +450,6 @@
             }
 
             container.innerHTML = "";
-            // Jeśli jest wiele meczów w korzeniu (np. brak finału, zaczynamy od półfinałów), renderuj je w kolumnie
             const rootCol = document.createElement("div");
             rootCol.className = "flex flex-col space-y-12";
             
@@ -459,12 +466,10 @@
             let t1, t1_logo, t1_id, t2, t2_logo, t2_id, mainScore, subText, winnerId = tie.winner_id;
 
             if(tie.isTie) {
-                // Logika dla dwumeczów (np. 1/8 finału)
                 t1=tie.team1; t1_logo=tie.team1_logo; t1_id=tie.team1_id; t2=tie.team2; t2_logo=tie.team2_logo; t2_id=tie.team2_id;
                 mainScore=tie.aggregate; subText = `(${tie.subscores})`;
                 if(tie.penaltyInfo) subText += ` <span class="text-red-500 font-bold">k. ${tie.penaltyInfo}</span>`;
             } else {
-                // Logika dla pojedynczych meczów (np. Finał)
                 t1=tie.home; t1_logo=tie.home_logo; t1_id=tie.home_id; t2=tie.away; t2_logo=tie.away_logo; t2_id=tie.away_id;
                 mainScore=tie.score; subText = tie.date;
                 if(tie.penalty) subText += ` <span class="text-red-500 font-bold">k. ${tie.penalty}</span>`;
@@ -481,12 +486,6 @@
             card.className = `match-card ${extraStyle} flex flex-col justify-center`;
             card.setAttribute("data-team", `${t1} ${t2}`.toLowerCase());
             
-            // Opcjonalnie: Jeśli to NIE jest dwumecz (tylko pojedyncze spotkanie), dodajemy link
-            // if (!tie.isTie) {
-            //    card.style.cursor = "pointer";
-            //    card.onclick = () => window.location.href = `/match/${tie.id}`;
-            // }
-            
             card.innerHTML = `
                 <div class="text-[10px] text-gray-400 text-center mb-2 tracking-tight uppercase font-bold">${translate(round)}</div>
                 <div class="flex justify-between items-center mb-1.5">
@@ -502,8 +501,90 @@
             return card;
         }
 
-        function filterTableRows() { const input = document.getElementById("teamFilter").value.toLowerCase(); const visibleContainer = document.querySelector("#view-standings:not(.hidden)") ? document.getElementById("tablesContainer") : (document.querySelector("#view-results:not(.hidden)") ? document.getElementById("resultsContainer") : document.getElementById("bracketContainer")); if(!visibleContainer) return; visibleContainer.querySelectorAll(".search-row").forEach(row => { const t = row.getAttribute("data-team"); row.style.opacity = (t && t.includes(input)) ? "1" : "0.1"; if(document.querySelector("#view-standings:not(.hidden)")) row.style.display = (t && t.includes(input)) ? "" : "none"; }); }
-        function switchTab(tab) { ['standings', 'results', 'bracket'].forEach(t => { document.getElementById(`view-${t}`).classList.add('hidden'); document.getElementById(`tab-${t}`).classList.remove("border-blue-500", "text-blue-600"); document.getElementById(`tab-${t}`).classList.add("border-transparent", "text-gray-500"); }); document.getElementById(`view-${tab}`).classList.remove('hidden'); document.getElementById(`tab-${tab}`).classList.add("border-blue-500", "text-blue-600"); document.getElementById(`tab-${tab}`).classList.remove("border-transparent", "text-gray-500"); }
+        // --- SCORERS: ŁADOWANIE I RENDER ---
+        async function loadScorers(lid, seas) {
+            const c = document.getElementById("scorersContainer");
+            if(!lid) {
+                c.innerHTML = '<div class="p-6 text-center text-gray-400 italic">Wybierz ligę, aby zobaczyć listę królów strzelców.</div>';
+                return;
+            }
+            c.innerHTML = '<div class="p-6 text-center text-gray-400 animate-pulse">Szukam snajperów...</div>';
+            try {
+                const res = await fetch(`/api/top-scorers/${lid}?season=${seas}`);
+                if (!res.ok) throw new Error('network');
+                const scorers = await res.json();
+
+                if (!scorers || scorers.length === 0) {
+                    c.innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">Brak danych o strzelcach.</div>';
+                    return;
+                }
+
+                c.innerHTML = scorers.map((p, i) => {
+                    let medal = "";
+                    if(i===0) medal = "🥇"; else if(i===1) medal = "🥈"; else if(i===2) medal = "🥉";
+                    else medal = `<span class="text-gray-400 text-xs font-mono ml-1">${i+1}.</span>`;
+
+                    return `
+                    <div onclick="window.location.href='/player/${p.id}'" class="flex items-center p-3 hover:bg-gray-50 cursor-pointer transition group">
+                        <div class="w-8 text-center flex-shrink-0 text-lg">${medal}</div>
+                        <div class="relative flex-shrink-0 mr-3">
+                            <img src="${p.photo}" class="w-10 h-10 rounded-full object-cover border border-gray-200 bg-white">
+                            <img src="${p.team_logo}" class="w-4 h-4 absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 border shadow-sm">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition">${p.name}</div>
+                            <div class="text-xs text-gray-500 truncate">${p.team}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-black text-blue-600 leading-none">${p.goals}</div>
+                            <div class="text-[10px] text-gray-400 uppercase">Goli</div>
+                        </div>
+                    </div>`;
+                }).join("");
+
+            } catch(e) {
+                console.error(e);
+                c.innerHTML = '<div class="p-4 text-red-500 text-center text-xs">Błąd ładowania danych o strzelcach.</div>';
+            }
+        }
+
+        function filterTableRows() {
+            const input = document.getElementById("teamFilter").value.toLowerCase();
+            const visibleContainer = document.querySelector("#view-standings:not(.hidden)") ? document.getElementById("tablesContainer") : (document.querySelector("#view-results:not(.hidden)") ? document.getElementById("resultsContainer") : (document.querySelector("#view-bracket:not(.hidden)") ? document.getElementById("bracketContainer") : (document.querySelector("#view-scorers:not(.hidden)") ? document.getElementById("scorersContainer") : null)));
+            if(!visibleContainer) return;
+            visibleContainer.querySelectorAll(".search-row, .match-card, .flex.items-center").forEach(row => {
+                // staramy się być łagodni — jeśli nie mają data-team, nie ukrywamy
+                const t = row.getAttribute ? row.getAttribute("data-team") : null;
+                if(!t) return;
+                row.style.opacity = (t && t.includes(input)) ? "1" : "0.1";
+                if(document.querySelector("#view-standings:not(.hidden)")) row.style.display = (t && t.includes(input)) ? "" : "none";
+            });
+        }
+
+        function switchTab(tab) {
+            ['standings', 'results', 'bracket', 'scorers'].forEach(t => {
+                document.getElementById(`view-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`tab-${t}`);
+                if(btn) {
+                    btn.classList.remove("border-blue-500", "text-blue-600");
+                    btn.classList.add("border-transparent", "text-gray-500");
+                }
+            });
+            document.getElementById(`view-${tab}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            if(activeBtn) {
+                activeBtn.classList.add("border-blue-500", "text-blue-600");
+                activeBtn.classList.remove("border-transparent", "text-gray-500");
+            }
+
+            // Jeśli użytkownik przełącza się na zakładkę strzelców i wybrana liga jest ustawiona, odświeżamy dane
+            if(tab === 'scorers') {
+                const lid = document.getElementById("selectedLeagueId").value;
+                const seas = document.getElementById("seasonSelect").value;
+                if(lid) loadScorers(lid, seas);
+            }
+        }
+
         init();
     </script>
 </body>

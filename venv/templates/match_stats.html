@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>body { font-family: 'Inter', sans-serif; }</style>
+    
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10">
 
@@ -14,17 +15,29 @@
 
     <div class="max-w-4xl mx-auto px-4 mt-6">
         
-       <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-6 mb-6 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+            <a href="javascript:history.back()" class="text-gray-500 hover:text-blue-600 font-semibold flex items-center transition">
+                <span class="text-xl mr-2">⟵</span> Wróć
+            </a>
+            <span class="font-bold text-gray-400 text-xs uppercase tracking-wider" id="leagueHeader">Ładowanie...</span>
+        </div>
+
+        <div id="errorContainer" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
+            <strong class="font-bold">Błąd!</strong>
+            <span class="block sm:inline" id="errorText">Nie udało się pobrać danych.</span>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-6 mb-6 relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-red-500"></div>
             
             <div class="flex justify-between items-center text-center">
                 <div id="homeTeamClick" class="cursor-pointer hover:opacity-80 transition flex-1 flex flex-col items-center">
-                    <img id="homeLogo" class="w-16 h-16 object-contain mb-3">
-                    <h2 id="homeName" class="font-bold text-lg leading-tight"></h2>
+                    <img id="homeLogo" class="w-16 h-16 object-contain mb-3 bg-gray-50 rounded-full p-1">
+                    <h2 id="homeName" class="font-bold text-lg leading-tight">...</h2>
                 </div>
 
                 <div class="px-4">
-                    <div id="matchStatus" class="text-xs font-bold text-gray-400 uppercase mb-1 tracking-widest"></div>
+                    <div id="matchStatus" class="text-xs font-bold text-gray-400 uppercase mb-1 tracking-widest">-</div>
                     <div class="text-4xl font-black text-gray-900 tracking-tighter mb-1">
                         <span id="scoreHome">-</span> : <span id="scoreAway">-</span>
                     </div>
@@ -32,8 +45,8 @@
                 </div>
 
                 <div id="awayTeamClick" class="cursor-pointer hover:opacity-80 transition flex-1 flex flex-col items-center">
-                    <img id="awayLogo" class="w-16 h-16 object-contain mb-3">
-                    <h2 id="awayName" class="font-bold text-lg leading-tight"></h2>
+                    <img id="awayLogo" class="w-16 h-16 object-contain mb-3 bg-gray-50 rounded-full p-1">
+                    <h2 id="awayName" class="font-bold text-lg leading-tight">...</h2>
                 </div>
             </div>
         </div>
@@ -46,7 +59,7 @@
 
         <div id="tab-stats" class="space-y-4 animate-fade-in">
             <div id="statsContainer" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                <p class="text-center text-gray-400 italic">Ładowanie statystyk...</p>
+                <p class="text-center text-gray-400 italic">Pobieranie statystyk...</p>
             </div>
         </div>
 
@@ -70,27 +83,44 @@
     </div>
 
     <script>
+        // Poprawka: Bezpieczniejsze rzutowanie na liczbę
         const fixtureId = Number("{{ fixture_id }}");
 
         async function loadMatch() {
             try {
                 const res = await fetch(`/api/match-details/${fixtureId}`);
+                
+                if (!res.ok) throw new Error("Błąd sieci lub serwera.");
+                
                 const data = await res.json();
                 
-                if(!data || !data.teams) return;
+                // KLUCZOWA POPRAWKA: Sprawdzamy czy dane są poprawne
+                if(!data || !data.teams || Object.keys(data).length === 0) {
+                    showError("Nie udało się pobrać szczegółów tego meczu. (Brak danych w API)");
+                    return;
+                }
 
                 renderHeader(data);
                 renderStats(data);
                 renderLineups(data);
                 renderEvents(data);
 
-            } catch(e) { console.error(e); }
+            } catch(e) { 
+                console.error(e);
+                showError("Wystąpił błąd połączenia. Spróbuj odświeżyć stronę.");
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById("statsContainer").innerHTML = '';
+            const errDiv = document.getElementById("errorContainer");
+            document.getElementById("errorText").textContent = msg;
+            errDiv.classList.remove("hidden");
         }
 
         function renderHeader(d) {
-            document.getElementById("leagueHeader").textContent = `${d.league.name} • ${d.league.round || ''}`;
+            if(d.league) document.getElementById("leagueHeader").textContent = `${d.league.name} • ${d.league.round || ''}`;
             
-            // Wypełnianie danych
             document.getElementById("homeName").textContent = d.teams.home.name;
             document.getElementById("homeLogo").src = d.teams.home.logo;
             document.getElementById("awayName").textContent = d.teams.away.name;
@@ -99,9 +129,12 @@
             document.getElementById("scoreHome").textContent = d.goals.home ?? 0;
             document.getElementById("scoreAway").textContent = d.goals.away ?? 0;
             document.getElementById("matchStatus").textContent = d.fixture.status.long;
-            document.getElementById("matchTime").textContent = d.fixture.status.elapsed ? `${d.fixture.status.elapsed}'` : new Date(d.fixture.date).toLocaleDateString();
+            
+            const date = new Date(d.fixture.date).toLocaleDateString();
+            const time = d.fixture.status.elapsed ? `${d.fixture.status.elapsed}'` : date;
+            document.getElementById("matchTime").textContent = time;
 
-            // Obsługa kliknięcia w drużynę
+            // Linki do profili
             document.getElementById("homeTeamClick").onclick = () => window.location.href = `/team/${d.teams.home.id}`;
             document.getElementById("awayTeamClick").onclick = () => window.location.href = `/team/${d.teams.away.id}`;
         }
@@ -109,12 +142,11 @@
         function renderStats(d) {
             const container = document.getElementById("statsContainer");
             if(!d.statistics || d.statistics.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-400">Brak danych statystycznych.</p>';
+                container.innerHTML = '<p class="text-center text-gray-400">Brak danych statystycznych dla tego meczu.</p>';
                 return;
             }
 
             const statsMap = {};
-            // Scalanie statystyk z dwóch tablic (home/away)
             d.statistics.forEach(teamStats => {
                 const isHome = teamStats.team.id === d.teams.home.id;
                 teamStats.statistics.forEach(s => {
@@ -124,7 +156,6 @@
                 });
             });
 
-            // Tłumaczenie kluczowych statystyk
             const translation = {
                 "Ball Possession": "Posiadanie piłki", "Shots on Goal": "Strzały celne",
                 "Shots off Goal": "Strzały niecelne", "Total Shots": "Wszystkie strzały",
