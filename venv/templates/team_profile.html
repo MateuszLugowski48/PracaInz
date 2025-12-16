@@ -67,7 +67,6 @@
     </div>
 
     <script>
-        // Obejście dla edytora kodu
         const teamId = Number("{{ team_id }}");
 
         async function loadTeam() {
@@ -118,9 +117,7 @@
                 if(isFinished) {
                     const parts = m.score.split("-");
                     const h = parseInt(parts[0]), a = parseInt(parts[1]);
-                    const isHome = m.home === document.getElementById("teamName").textContent; // Proste sprawdzenie nazwy
-                    // Dokładniejsze byłoby porównanie ID, ale w tym widoku mamy tylko nazwy z format_matches
-                    // Uznajmy szary neutralny, bo w format_matches nie przekazałem ID bieżącego teamu do logiki
+                    const isHome = m.home === document.getElementById("teamName").textContent;
                 }
 
                 return `

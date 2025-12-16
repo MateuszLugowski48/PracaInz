@@ -12,7 +12,7 @@
         .animate-fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Stylizacja boiska */
+        /* wygląd boiska */
         .football-pitch {
             background-color: #4ade80;
             background-image: 
@@ -24,20 +24,21 @@
             box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
             overflow: hidden;
         }
-        /* Linie boiska */
+        
+        /* linie boiska */
         .pitch-line-center { position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: rgba(255,255,255,0.6); }
         .pitch-circle-center { position: absolute; top: 50%; left: 50%; width: 80px; height: 80px; border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; transform: translate(-50%, -50%); }
         .pitch-box-top { position: absolute; top: 0; left: 50%; width: 40%; height: 15%; border: 2px solid rgba(255,255,255,0.6); border-top: none; transform: translateX(-50%); background: rgba(255,255,255,0.1); }
         .pitch-box-bottom { position: absolute; bottom: 0; left: 50%; width: 40%; height: 15%; border: 2px solid rgba(255,255,255,0.6); border-bottom: none; transform: translateX(-50%); background: rgba(255,255,255,0.1); }
 
-        /* Kropka zawodnika - POPRAWIONY CSS */
+        /* kropka gracza */
         .player-dot {
             position: absolute; 
             transform: translate(-50%, -50%);
             display: flex; 
             flex-direction: column; 
-            align-items: center;       /* Poprawiono */
-            justify-content: center;   /* Poprawiono */
+            align-items: center;      
+            justify-content: center;  
             cursor: pointer; 
             z-index: 10; 
             transition: transform 0.2s;
@@ -239,26 +240,41 @@
         const fixtureId = Number("{{ fixture_id }}");
         let probChartInstance = null;
 
+        // główna pętla ładująca
         async function loadMatch() {
             try {
                 const res = await fetch(`/api/match-details/${fixtureId}`);
                 if (!res.ok) throw new Error("Błąd sieci.");
                 const data = await res.json();
-                if(!data || !data.teams) { showError("Brak danych."); return; }
-                renderHeader(data); renderStats(data); renderPitch(data); renderEvents(data);
-            } catch(e) { showError("Błąd ładowania danych."); }
+                
+                if(!data || !data.teams) { 
+                    showError("Brak danych."); return; 
+                }
+                
+                // widoki
+                renderHeader(data); 
+                renderStats(data); 
+                renderPitch(data); 
+                renderEvents(data);
+                
+            } catch(e) { 
+                showError("Błąd ładowania danych."); 
+            }
         }
 
+        // pobieranie kursów
         async function loadOdds() {
             try {
                 const res = await fetch(`/api/match-odds/${fixtureId}`);
                 const data = await res.json();
+                
                 if (res.ok && !data.error) {
                     document.getElementById('bookie-name').innerText = data.bookie_name;
                     document.getElementById('odd-home').innerText = data.home;
                     document.getElementById('odd-draw').innerText = data.draw;
                     document.getElementById('odd-away').innerText = data.away;
                     
+                    // przelicznik na %
                     let pH = 1/parseFloat(data.home), pD = 1/parseFloat(data.draw), pA = 1/parseFloat(data.away);
                     let total = pH+pD+pA;
                     
@@ -267,12 +283,17 @@
                         document.getElementById(id).style.width = pct + "%";
                         document.getElementById('prob-'+id.split('-')[1]+'-label').innerText = pct + "%";
                     };
-                    setBar('bar-home', pH); setBar('bar-draw', pD); setBar('bar-away', pA);
+                    
+                    setBar('bar-home', pH); 
+                    setBar('bar-draw', pD); 
+                    setBar('bar-away', pA);
+                    
                     document.getElementById('betting-section').classList.remove('hidden');
                 }
             } catch (e) {}
         }
 
+        // AI predictions
         async function loadPredictions() {
             try {
                 const res = await fetch(`/api/match-predictions/${fixtureId}`);
@@ -281,7 +302,7 @@
                 if (res.ok && !data.error) {
                     document.getElementById('ai-advice').innerText = data.advice;
 
-                    // NOWA OBSŁUGA TOP 3 WYNIKÓW
+                    // top wyniki
                     const scoreContainer = document.getElementById('ai-score-container');
                     scoreContainer.innerHTML = ""; 
 
@@ -303,7 +324,7 @@
                         scoreContainer.innerHTML = '<div class="text-xl">- : -</div>';
                     }
 
-                    // Wykres kołowy
+                    // wykres kołowy
                     const ctx = document.getElementById('probChart').getContext('2d');
                     const pHome = parseInt(data.percent.home.replace('%','')) || 0;
                     const pDraw = parseInt(data.percent.draw.replace('%','')) || 0;
@@ -329,7 +350,7 @@
                         options: { cutout: '70%', plugins: { legend: { display: false } } }
                     });
 
-                    // Value Bets
+                    // value bets
                     if(data.value_bets && data.value_bets.length > 0) {
                         const bestBet = data.value_bets.sort((a, b) => b.value - a.value)[0];
                         const container = document.getElementById('value-bet-container');
@@ -346,7 +367,7 @@
                         document.getElementById('vb-odd').innerText = bestBet.odd;
                     }
 
-                    // Trendy
+                    // trendy
                     const tipsGrid = document.getElementById('tips-grid');
                     tipsGrid.innerHTML = "";
                     if(data.stats_tips && data.stats_tips.length > 0) {
@@ -362,7 +383,7 @@
                         });
                     } else { tipsGrid.innerHTML = '<p class="text-sm text-gray-400">Brak wyraźnych trendów.</p>'; }
                     
-                    // Form bars
+                    // forma
                     if(data.comparison && data.comparison.form) {
                         document.getElementById('form-bar-home').style.width = data.comparison.form.home;
                         document.getElementById('form-bar-away').style.width = data.comparison.form.away;
@@ -371,7 +392,7 @@
             } catch (e) { console.log("Brak predykcji:", e); }
         }
 
-        // --- Renderery (skrócone) ---
+        // render header
         function renderHeader(d) {
             if(d.league) document.getElementById("leagueHeader").textContent = `${d.league.name} • ${d.league.round || ''}`;
             document.getElementById("homeName").textContent = d.teams.home.name;
@@ -381,16 +402,23 @@
             document.getElementById("scoreHome").textContent = d.goals.home ?? 0;
             document.getElementById("scoreAway").textContent = d.goals.away ?? 0;
             document.getElementById("matchStatus").textContent = d.fixture.status.long;
+            
             const date = new Date(d.fixture.date).toLocaleDateString();
             const time = d.fixture.status.elapsed ? `${d.fixture.status.elapsed}'` : date;
+            
             document.getElementById("matchTime").textContent = time;
             document.getElementById("homeTeamClick").onclick = () => window.location.href = `/team/${d.teams.home.id}`;
             document.getElementById("awayTeamClick").onclick = () => window.location.href = `/team/${d.teams.away.id}`;
         }
 
+        // render statystyk
         function renderStats(d) {
             const container = document.getElementById("statsContainer");
-            if(!d.statistics || d.statistics.length === 0) { container.innerHTML = '<p class="text-center text-gray-400">Brak danych.</p>'; return; }
+            if(!d.statistics || d.statistics.length === 0) { 
+                container.innerHTML = '<p class="text-center text-gray-400">Brak danych.</p>'; 
+                return; 
+            }
+            
             const statsMap = {};
             d.statistics.forEach(ts => {
                 const isHome = ts.team.id === d.teams.home.id;
@@ -399,54 +427,130 @@
                     if(isHome) statsMap[s.type].home = s.value ?? 0; else statsMap[s.type].away = s.value ?? 0;
                 });
             });
-            const trans = { "Ball Possession": "Posiadanie", "Shots on Goal": "Celne", "Total Shots": "Strzały", "Corner Kicks": "Rożne", "Fouls": "Faule", "Yellow Cards": "Żółte" };
+            
+            const trans = {
+                "Ball Possession": "Posiadanie piłki (%)",
+                "Shots on Goal": "Strzały celne",
+                "Shots off Goal": "Strzały niecelne",
+                "Total Shots": "Strzały łącznie",
+                "Blocked Shots": "Zablokowane",
+                "Corner Kicks": "Rzuty rożne",
+                "Offsides": "Spalone",
+                "Goalkeeper Saves": "Parady bramkarza",
+                "Fouls": "Faule",
+                "Red Cards": "Czerwone kartki",
+                "Yellow Cards": "Żółte kartki",
+                "Total passes": "Podania",
+                "Passes accurate": "Podania celne",
+                "Passes %": "Celność podań",
+                "Shots insidebox": "Strzały z pola karnego",
+                "Shots outsidebox": "Strzały z dystansu",
+                "expected_goals": "Oczekiwane gole (xG)",
+                "goals_prevented": "Gole zapobiegnione"
+            };
+            
             let html = "";
             for (const [key, stat] of Object.entries(statsMap)) {
                 const total = (parseFloat(String(stat.home))||0) + (parseFloat(String(stat.away))||0);
                 let hp = 50, ap = 50;
                 if(total>0) { hp = ((parseFloat(String(stat.home))||0)/total)*100; ap=100-hp; }
-                html += `<div class="mb-4"><div class="flex justify-between text-xs font-bold text-gray-500 uppercase mb-1"><span>${stat.home}</span><span>${trans[key]||key}</span><span>${stat.away}</span></div><div class="flex h-2 rounded-full overflow-hidden bg-gray-100"><div class="bg-blue-500" style="width:${hp}%"></div><div class="bg-red-500" style="width:${ap}%"></div></div></div>`;
+                
+                // Używamy tłumaczenia lub oryginału jeśli brak w słowniku
+                const label = trans[key] || key;
+                
+                html += `
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs font-bold text-gray-500 uppercase mb-1">
+                        <span>${stat.home}</span>
+                        <span>${label}</span>
+                        <span>${stat.away}</span>
+                    </div>
+                    <div class="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                        <div class="bg-blue-500" style="width:${hp}%"></div>
+                        <div class="bg-red-500" style="width:${ap}%"></div>
+                    </div>
+                </div>`;
             }
             container.innerHTML = html;
         }
 
+        // render boiska
         function renderPitch(d) {
-            if(!d.lineups || d.lineups.length < 2) { document.getElementById("tab-lineups").innerHTML = '<div class="p-10 text-center text-gray-400">Brak składów.</div>'; return; }
+            if(!d.lineups || d.lineups.length < 2) { 
+                document.getElementById("tab-lineups").innerHTML = '<div class="p-10 text-center text-gray-400">Brak składów.</div>'; 
+                return; 
+            }
+            
             const home = d.lineups[0], away = d.lineups[1];
             document.getElementById("pitchHomeName").innerText = home.team.name;
             document.getElementById("pitchAwayName").innerText = away.team.name;
-            drawPlayers(home.startXI, 'pitch-home', true); drawPlayers(away.startXI, 'pitch-away', false);
-            renderSubs(home.substitutes, 'subs-home'); renderSubs(away.substitutes, 'subs-away');
+            
+            drawPlayers(home.startXI, 'pitch-home', true); 
+            drawPlayers(away.startXI, 'pitch-away', false);
+            
+            renderSubs(home.substitutes, 'subs-home'); 
+            renderSubs(away.substitutes, 'subs-away');
         }
 
+        // rysowanie graczy
         function drawPlayers(players, cid, isHome) {
-            const c = document.getElementById(cid); c.innerHTML=""; const lines={};
-            players.forEach(p=>{ if(!p.player.grid)return; const r=p.player.grid.split(':')[0]; if(!lines[r])lines[r]=[]; lines[r].push(p.player); });
-            if(!Object.keys(lines).length){c.innerHTML="<div class='text-white text-center pt-10 opacity-50'>Brak gridu</div>";return;}
+            const c = document.getElementById(cid); 
+            c.innerHTML=""; 
+            const lines={};
+            
+            players.forEach(p=>{ 
+                if(!p.player.grid) return; 
+                const r=p.player.grid.split(':')[0]; 
+                if(!lines[r]) lines[r]=[]; 
+                lines[r].push(p.player); 
+            });
+            
+            if(!Object.keys(lines).length){
+                c.innerHTML="<div class='text-white text-center pt-10 opacity-50'>Brak gridu</div>";
+                return;
+            }
+            
             const maxR = Math.max(...Object.keys(lines).map(Number));
             Object.keys(lines).forEach(rNum => {
                 const line = lines[rNum].sort((a,b)=>parseInt(a.grid.split(':')[1])-parseInt(b.grid.split(':')[1]));
+                
                 line.forEach((p,i)=>{
-                    const d=document.createElement('div'); d.className="player-dot"; d.onclick=()=>window.location.href=`/player/${p.id}`;
+                    const d=document.createElement('div'); 
+                    d.className="player-dot"; 
+                    d.onclick=()=>window.location.href=`/player/${p.id}`;
+                    
                     const tp = isHome ? (rNum/(maxR+1))*100 : 100-((rNum/(maxR+1))*100);
-                    d.style.top=`${tp}%`; d.style.left=`${((i+1)/(line.length+1))*100}%`;
+                    d.style.top=`${tp}%`; 
+                    d.style.left=`${((i+1)/(line.length+1))*100}%`;
+                    
                     d.innerHTML=`<div class="player-number ${isHome?'bg-blue-600 border-blue-200':'bg-red-600 border-red-200'}">${p.number}</div><div class="player-name">${p.name.split(' ').pop()}</div>`;
                     c.appendChild(d);
                 });
             });
         }
-        function renderSubs(s,id){ document.getElementById(id).innerHTML=s.map(p=>`<div onclick="window.location.href='/player/${p.player.id}'" class="flex items-center cursor-pointer hover:text-blue-600 py-1"><span class="text-gray-400 w-6 text-right mr-2 text-xs">${p.player.number}</span><span class="font-medium">${p.player.name}</span></div>`).join(''); }
+        
+        function renderSubs(s,id){ 
+            document.getElementById(id).innerHTML=s.map(p=>`<div onclick="window.location.href='/player/${p.player.id}'" class="flex items-center cursor-pointer hover:text-blue-600 py-1"><span class="text-gray-400 w-6 text-right mr-2 text-xs">${p.player.number}</span><span class="font-medium">${p.player.name}</span></div>`).join(''); 
+        }
 
         function renderEvents(d) {
             const tl = document.getElementById("eventsTimeline");
-            if(!d.events||!d.events.length){tl.innerHTML='<p class="text-gray-400">Brak zdarzeń.</p>';return;}
+            if(!d.events||!d.events.length){
+                tl.innerHTML='<p class="text-gray-400">Brak zdarzeń.</p>';
+                return;
+            }
+            
             tl.innerHTML = d.events.map(e => {
                 const isHome = e.team.id === d.teams.home.id;
-                let icon="⚽"; if(e.type==="Card") icon=e.detail==="Yellow Card"?"🟨":"🟥"; if(e.type==="subst") icon="🔄";
+                let icon="⚽"; 
+                if(e.type==="Card") icon=e.detail==="Yellow Card"?"🟨":"🟥"; 
+                if(e.type==="subst") icon="🔄";
+                
                 return `<div class="mb-4 ml-6 relative"><span class="absolute -left-10 top-0 w-8 h-8 rounded-full bg-white border flex items-center justify-center font-bold text-xs text-gray-600">${e.time.elapsed}'</span><div class="flex flex-col ${isHome?'items-start':'items-end'}"><div class="bg-white p-2 rounded border shadow-sm flex items-center ${isHome?'':'flex-row-reverse'} gap-2"><span>${icon}</span> <span class="text-sm font-bold">${e.player.name}</span></div></div></div>`;
             }).join('');
         }
 
+        // zakładki
         function setTab(name) {
             ['prediction','stats','lineups','events'].forEach(t=>{
                 document.getElementById(`tab-${t}`).classList.add('hidden');
@@ -454,14 +558,20 @@
                 btn.className = "px-6 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition";
                 if(t==='prediction') btn.classList.remove('text-white','bg-purple-600');
             });
+            
             document.getElementById(`tab-${name}`).classList.remove('hidden');
             const btn = document.getElementById(`btn-${name}`);
+            
             if(name==='prediction') btn.classList.add('bg-purple-600','text-white');
             else btn.classList.add('bg-blue-600','text-white');
         }
 
-        function showError(m) { document.getElementById('errorContainer').classList.remove('hidden'); document.getElementById('errorText').innerText=m; }
+        function showError(m) { 
+            document.getElementById('errorContainer').classList.remove('hidden'); 
+            document.getElementById('errorText').innerText=m; 
+        }
 
+        // init
         loadMatch();
         loadOdds();
         loadPredictions();

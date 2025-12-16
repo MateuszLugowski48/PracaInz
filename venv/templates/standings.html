@@ -4,23 +4,30 @@
     <title>Centrum Ligowe</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
     <style>
         body { font-family: 'Inter', sans-serif; }
+        
+        /* Podstawowe animacje i ukrywanie scrollbara dla estetyki */
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* --- CSS DRZEWKA (REKURENCYJNE) --- */
+        /* Style dla drzewka pucharowego - obsługa linii łączących i układu gałęzi */
         .node-wrapper { display: flex; align-items: center; }
         .branch-container { display: flex; flex-direction: column; justify-content: center; margin-right: 2rem; position: relative; }
         .connector-horizontal { width: 2rem; height: 2px; background-color: #cbd5e1; }
         .bracket-brace { position: absolute; right: 0; width: 2px; background-color: #cbd5e1; top: 25%; bottom: 25%; }
+        
+        /* Ukrywanie linii dla pojedynczych gałęzi (np. finał) */
         .branch-container.single-child .bracket-brace { display: none; }
         .branch-container.single-child::after { content: ''; position: absolute; right: 0; top: 50%; width: 10px; height: 2px; background: #cbd5e1; }
 
+        /* Karty meczowe w drabince */
         .match-card {
             width: 15rem;
             background: white;
@@ -82,25 +89,21 @@
                 <button onclick="switchTab('bracket')" id="tab-bracket" class="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                     🏆 Drabinka Pucharowa
                 </button>
-                <!-- NOWA ZAKŁADKA: Królowie Strzelców -->
                 <button onclick="switchTab('scorers')" id="tab-scorers" class="border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
                     ⚽ Królowie Strzelców
                 </button>
             </nav>
         </div>
 
-        <!-- STANDINGS VIEW -->
         <div id="view-standings" class="fade-in max-w-6xl mx-auto">
             <div id="tablesContainer" class="space-y-8"><div class="text-center py-12 text-gray-400 italic">Wyszukaj ligę powyżej.</div></div>
             <div id="legend" class="mt-6 flex flex-wrap gap-3 text-xs text-gray-600 px-2"></div>
         </div>
 
-        <!-- RESULTS VIEW -->
         <div id="view-results" class="hidden fade-in max-w-5xl mx-auto">
             <div id="resultsContainer" class="space-y-4"></div>
         </div>
 
-        <!-- BRACKET VIEW -->
         <div id="view-bracket" class="hidden fade-in">
             <div id="bracketWrapper" class="w-full overflow-x-auto pb-6 flex justify-center">
                 <div id="bracketContainer" class="p-10 flex items-center"></div>
@@ -108,7 +111,6 @@
             <div id="bracketMessage" class="hidden text-center text-gray-400 py-12">Brak fazy pucharowej dla tych rozgrywek.</div>
         </div>
 
-        <!-- SCORERS VIEW (Nowa zakładka) -->
         <div id="view-scorers" class="hidden fade-in max-w-4xl mx-auto">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div id="scorersContainer" class="divide-y divide-gray-100">
@@ -122,12 +124,12 @@
     </div>
 
     <script>
-        // --- KONFIGURACJA I SEZONY ---
+        // --- Konfiguracja globalna ---
         const currentYear = new Date().getFullYear();
-        const minYear = 2020; // OGRANICZENIE DO 2020
-
+        const minYear = 2020; 
         let searchTimeout = null;
 
+        // Mapowanie nazw rund API na polskie odpowiedniki
         const translations = {
             "Final": "Finał", "Semi-finals": "Półfinał", "Quarter-finals": "Ćwierćfinał",
             "Round of 16": "1/8 Finału", "Round of 32": "1/16 Finału", "Round of 64": "1/32 Finału",
@@ -135,6 +137,7 @@
             "Knockout Round Play-offs": "Baraże o 1/8", "Round of 16 Play-offs": "Baraże o 1/8"
         };
 
+        // Relacje między rundami - potrzebne do rekurencyjnego budowania drzewka
         const prevRoundMap = {
             "Final": "Semi-finals", "Semi-finals": "Quarter-finals", "Quarter-finals": "Round of 16",
             "Round of 16": "Round of 32", "Round of 32": "Round of 64"
@@ -142,6 +145,7 @@
         
         const roundPriority = ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32"];
 
+        // Normalizacja nazw rund (API potrafi zwracać dziwne formaty)
         function normalizeRoundName(roundName) {
             if(!roundName) return "";
             const r = roundName.toLowerCase();
@@ -157,24 +161,22 @@
 
         function translate(text) {
             const normalized = normalizeRoundName(text);
-            if (translations[normalized]) return translations[normalized];
-            return text;
+            return translations[normalized] || text;
         }
 
         function init() {
             const s = document.getElementById("seasonSelect");
             const maxYear = 2025; 
             const minYearLocal = 2020;
-            const seasons = [];
-            for (let y = maxYear; y >= minYearLocal; y--) { seasons.push(y); }
-            seasons.forEach(y => s.add(new Option(`${y}/${y+1}`, y)));
+            for (let y = maxYear; y >= minYearLocal; y--) { 
+                s.add(new Option(`${y}/${y+1}`, y)); 
+            }
             s.value = 2025;
-
-            // ustawienie domyślnej zakładki (Tabela)
             switchTab('standings');
         }
 
-        // --- LOGIKA KOLORÓW (Poprawiona) ---
+        // --- Logika kolorowania tabel (CSS Classes) ---
+        // Zależnie od ligi (LM, LE, Krajowa) wiersze mają inne kolory (awans/spadek)
         function getStyleForCL(rank, desc, total) {
             desc = desc ? desc.toLowerCase() : "";
             if (desc.includes("league phase") || total > 10) {
@@ -186,6 +188,7 @@
             if (rank === 3) return "border-l-4 border-orange-400 bg-orange-50";
             return "border-transparent";
         }
+
         function getStyleForEL(rank, desc, total) {
             desc = desc ? desc.toLowerCase() : "";
             if (desc.includes("league phase") || total > 10) {
@@ -197,6 +200,7 @@
             if (rank === 3) return "border-l-4 border-green-400 bg-green-50";
             return "border-transparent";
         }
+
         function getStyleForUECL(rank, desc, total) {
             desc = desc ? desc.toLowerCase() : "";
             if (desc.includes("league phase") || total > 10) {
@@ -208,6 +212,7 @@
             if (rank === 2) return "border-l-4 border-green-400 bg-green-50";
             return "border-transparent";
         }
+
         function getStyleForDomestic(rank, desc, total) {
             desc = desc ? desc.toLowerCase() : "";
             if (desc.includes("champions league")) return "border-l-4 border-blue-600 bg-blue-50";
@@ -221,18 +226,20 @@
             return "border-transparent";
         }
 
-        // --- FETCH / SEARCH ---
+        // --- Obsługa API: Wyszukiwanie ---
         function handleLeagueSearch() {
             clearTimeout(searchTimeout);
             const q = document.getElementById("leagueSearchInput").value;
             const r = document.getElementById("leagueSearchResults");
+            
             if (q.length < 3) { r.classList.add('hidden'); return; }
+            
             searchTimeout = setTimeout(async () => {
                 try {
                     const res = await fetch(`/search-leagues?q=${encodeURIComponent(q)}`);
                     const data = await res.json();
                     r.innerHTML = '';
-                    if(data.length>0){
+                    if(data.length > 0){
                         r.classList.remove('hidden');
                         data.forEach(l=>{
                             const d=document.createElement('div');
@@ -248,34 +255,48 @@
                             r.appendChild(d);
                         });
                     } else r.classList.add('hidden');
-                } catch(e) {
-                    // silently ignore search errors for UX
-                    r.classList.add('hidden');
-                }
+                } catch(e) { r.classList.add('hidden'); }
             }, 300);
         }
 
+        // Główna funkcja ładująca dane po wyborze ligi
         function loadData() {
             const lid = document.getElementById("selectedLeagueId").value;
             const seas = document.getElementById("seasonSelect").value;
             const lname = document.getElementById("selectedLeagueName").value;
+            
             if(!lid) return;
             document.getElementById("pageTitle").textContent = `${lname} (${seas}/${parseInt(seas)+1})`;
+            
             loadStandings(lid, seas);
             loadFixtures(lid, seas);
-            loadScorers(lid, seas); // <-- nowe: ładujemy strzelców razem z resztą
+            loadScorers(lid, seas);
         }
 
-        // --- RENDER TABELA ---
+        // --- Renderowanie Tabeli ---
         async function loadStandings(lid, seas) {
-            const c = document.getElementById("tablesContainer"); c.innerHTML = '<div class="text-center py-10">Ładowanie...</div>'; document.getElementById("legend").innerHTML = "";
+            const c = document.getElementById("tablesContainer"); 
+            c.innerHTML = '<div class="text-center py-10">Ładowanie...</div>'; 
+            document.getElementById("legend").innerHTML = "";
+            
             try {
-                const res = await fetch(`/standings/${lid}?season=${seas}`); const groups = await res.json(); c.innerHTML = "";
-                if (!groups || groups.length === 0) { c.innerHTML = '<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-700">Brak tabeli (sprawdź zakładkę Drabinka).</div>'; return; }
+                const res = await fetch(`/standings/${lid}?season=${seas}`); 
+                const groups = await res.json(); 
+                c.innerHTML = "";
+                
+                if (!groups || groups.length === 0) { 
+                    c.innerHTML = '<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 text-yellow-700">Brak tabeli (sprawdź zakładkę Drabinka).</div>'; 
+                    return; 
+                }
+                
                 const leagueName = document.getElementById("selectedLeagueName").value.toLowerCase();
+                
                 groups.forEach(rows => {
                     if(rows.length > 0 && rows[0].group_name) c.innerHTML += `<h3 class="font-bold mt-8 mb-3 text-xl text-gray-800">${rows[0].group_name}</h3>`;
-                    const tableWrapper = document.createElement("div"); tableWrapper.className = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6";
+                    
+                    const tableWrapper = document.createElement("div"); 
+                    tableWrapper.className = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6";
+                    
                     let rowsHtml = rows.map(r => {
                         let styleClass = "";
                         if (leagueName.includes("champions league")) styleClass = getStyleForCL(r.rank, r.description, rows.length);
@@ -294,9 +315,12 @@
                             <td class="px-4 py-3 text-center hidden sm:table-cell text-sm text-gray-500">${r.goalsDiff}</td>
                         </tr>`;
                     }).join("");
+                    
                     tableWrapper.innerHTML = `<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-100"><tr><th class="px-4 py-3 w-16 text-center">#</th><th class="px-4 py-3 text-left">Drużyna</th><th class="px-4 py-3 w-16 text-center">M</th><th class="px-4 py-3 w-16 text-center">Pkt</th><th class="px-4 py-3 w-16 text-center hidden sm:table-cell">+/-</th></tr></thead><tbody class="divide-y divide-gray-100">${rowsHtml}</tbody></table>`;
                     c.appendChild(tableWrapper);
                 });
+                
+                // Generowanie legendy pod tabelą
                 const legDiv = document.getElementById("legend");
                 if (leagueName.includes("champions")) legDiv.innerHTML = `<div class="flex gap-4"><span class="text-xs"><span class="w-2 h-2 inline-block bg-blue-800 mr-1 rounded-full"></span>Awans (1-8)</span><span class="text-xs"><span class="w-2 h-2 inline-block bg-blue-400 mr-1 rounded-full"></span>Baraże</span></div>`;
                 else if (leagueName.includes("europa")) legDiv.innerHTML = `<div class="flex gap-4"><span class="text-xs"><span class="w-2 h-2 inline-block bg-orange-700 mr-1 rounded-full"></span>Awans</span><span class="text-xs"><span class="w-2 h-2 inline-block bg-orange-400 mr-1 rounded-full"></span>Baraże</span></div>`;
@@ -304,7 +328,7 @@
             } catch(e) { console.error(e); }
         }
 
-        // --- RENDER WYNIKI I DRABINKA ---
+        // --- Renderowanie Wyników i Drabinki ---
         async function loadFixtures(lid, seas) {
             const resCont = document.getElementById("resultsContainer");
             const brackCont = document.getElementById("bracketContainer");
@@ -316,6 +340,7 @@
 
                 if(matches.length === 0) { resCont.innerHTML = '<div class="text-center py-8 text-gray-400">Brak meczów.</div>'; brackMsg.classList.remove("hidden"); return; }
 
+                // Grupowanie meczów po rundach
                 const groups = {};
                 matches.forEach(m => {
                     const norm = normalizeRoundName(m.round);
@@ -323,9 +348,12 @@
                     groups[norm].push(m);
                 });
 
+                // Wyświetlanie listy wyników
                 const bracketKeys = ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32", "Round of 64"];
                 const listRounds = Object.keys(groups).filter(k => !bracketKeys.includes(k));
+                
                 if(listRounds.length === 0) resCont.innerHTML = '<div class="text-center py-8 text-gray-400 italic">Brak meczów fazy grupowej/eliminacyjnej.</div>';
+                
                 listRounds.sort().reverse();
                 listRounds.forEach(round => {
                     let html = `<div class="bg-white rounded-xl border mb-4 overflow-hidden"><div class="bg-gray-100 px-4 py-3 font-bold text-sm text-gray-700 uppercase">${translate(round)}</div><div class="divide-y divide-gray-100">`;
@@ -334,6 +362,7 @@
                     resCont.innerHTML += html;
                 });
 
+                // Generowanie drzewka pucharowego
                 let rootRound = null;
                 for(let r of roundPriority) { if(groups[r]) { rootRound = r; break; } }
 
@@ -346,7 +375,8 @@
             } catch(e) { console.error(e); }
         }
 
-        // --- AGREGACJA TIES (Z ID) ---
+        // --- Logika Drabinki: Agregacja dwumeczów ---
+        // Łączy wyniki meczu u siebie i na wyjeździe w jeden obiekt "Tie"
         function aggregateTies(matches, isFinal) {
             if(isFinal && matches.length === 1) return matches.map(m => ({ ...m, isTie: false, winner_id: (m.home_winner ? m.home_id : (m.away_winner ? m.away_id : null)), participants: [m.home_id, m.away_id] }));
 
@@ -367,6 +397,7 @@
                 if(m.away_winner) { if(m.away_id === tiesMap[key].team1_id) tiesMap[key].winner1=true; else tiesMap[key].winner2=true; }
             });
 
+            // Obliczanie sumy goli (aggregate score)
             return Object.values(tiesMap).map(tie => {
                 let score1=0, score2=0, subscores=[], penaltyInfo="", winnerId=null;
 
@@ -394,7 +425,8 @@
             });
         }
 
-        // --- BUDOWANIE DRZEWA (REKURENCJA) ---
+        // --- Logika Drabinki: Rekurencja ---
+        // Główna funkcja budująca drzewo DOM od finału w dół
         function renderRecursiveBracket(groups, rootRoundName, container) {
             const roundsData = {};
             ["Final", "Semi-finals", "Quarter-finals", "Round of 16", "Round of 32", "Round of 64"].forEach(r => {
@@ -411,6 +443,7 @@
                 const childrenContainer = document.createElement("div");
                 childrenContainer.className = "branch-container"; 
 
+                // Szukanie dzieci (meczów z poprzedniej rundy, które wyłoniły uczestników tego meczu)
                 if(prevRound && roundsData[prevRound]) {
                     const p1 = match.isTie ? match.team1_id : match.home_id;
                     const p2 = match.isTie ? match.team2_id : match.away_id;
@@ -418,6 +451,7 @@
                     let source1 = roundsData[prevRound].find(m => (m.winner_id === p1));
                     let source2 = roundsData[prevRound].find(m => (m.winner_id === p2));
                     
+                    // Fallback jeśli winner_id nie zadziałał (szukanie po uczestnikach)
                     if(!source1) source1 = roundsData[prevRound].find(m => m.participants.includes(p1));
                     if(!source2) source2 = roundsData[prevRound].find(m => m.participants.includes(p2) && m !== source1);
 
@@ -428,6 +462,8 @@
                             const brace = document.createElement("div");
                             brace.className = "bracket-brace";
                             childrenContainer.appendChild(brace);
+                        } else {
+                            childrenContainer.classList.add("single-child");
                         }
 
                         sources.forEach(src => {
@@ -459,6 +495,7 @@
             container.appendChild(rootCol);
         }
 
+        // Tworzenie elementu HTML pojedynczego węzła (karty meczu)
         function createTieCard(tie, round) {
             const card = document.createElement("div");
             const isFinal = round === "Final";
@@ -501,7 +538,7 @@
             return card;
         }
 
-        // --- SCORERS: ŁADOWANIE I RENDER ---
+        // --- Strzelcy: Pobieranie i renderowanie ---
         async function loadScorers(lid, seas) {
             const c = document.getElementById("scorersContainer");
             if(!lid) {
@@ -548,19 +585,24 @@
             }
         }
 
+        // --- Filtrowanie widoku (Client-side) ---
         function filterTableRows() {
             const input = document.getElementById("teamFilter").value.toLowerCase();
             const visibleContainer = document.querySelector("#view-standings:not(.hidden)") ? document.getElementById("tablesContainer") : (document.querySelector("#view-results:not(.hidden)") ? document.getElementById("resultsContainer") : (document.querySelector("#view-bracket:not(.hidden)") ? document.getElementById("bracketContainer") : (document.querySelector("#view-scorers:not(.hidden)") ? document.getElementById("scorersContainer") : null)));
+            
             if(!visibleContainer) return;
+            
             visibleContainer.querySelectorAll(".search-row, .match-card, .flex.items-center").forEach(row => {
-                // staramy się być łagodni — jeśli nie mają data-team, nie ukrywamy
                 const t = row.getAttribute ? row.getAttribute("data-team") : null;
                 if(!t) return;
+                
+                // Zmieniamy opacity zamiast display:none, żeby nie psuć układu grid/flex w drabince
                 row.style.opacity = (t && t.includes(input)) ? "1" : "0.1";
                 if(document.querySelector("#view-standings:not(.hidden)")) row.style.display = (t && t.includes(input)) ? "" : "none";
             });
         }
 
+        // --- Obsługa zakładek (Tabs) ---
         function switchTab(tab) {
             ['standings', 'results', 'bracket', 'scorers'].forEach(t => {
                 document.getElementById(`view-${t}`).classList.add('hidden');
@@ -577,7 +619,6 @@
                 activeBtn.classList.remove("border-transparent", "text-gray-500");
             }
 
-            // Jeśli użytkownik przełącza się na zakładkę strzelców i wybrana liga jest ustawiona, odświeżamy dane
             if(tab === 'scorers') {
                 const lid = document.getElementById("selectedLeagueId").value;
                 const seas = document.getElementById("seasonSelect").value;

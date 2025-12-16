@@ -176,7 +176,7 @@
             }
         }
 
-        // --- KLUCZOWA ZMIANA: AGREGACJA STATYSTYK ZE WSZYSTKICH LIG ---
+        // AGREGACJA STATYSTYK ZE WSZYSTKICH LIG
         function aggregateStats(statsArray) {
             // Pusty obiekt startowy
             let total = {
@@ -288,7 +288,7 @@
                     let v1 = getStatValue(s1, m.path);
                     let v2 = getStatValue(s2, m.path);
 
-                    // Obsługa kartek (łączenie żółtych i czerwonych do wyświetlenia)
+                    // Obsługa kartek
                     if(m.special && m.path === "cards.yellow") {
                         v1 = `${v1} / ${s1.cards.red}`;
                         v2 = `${v2} / ${s2.cards.red}`;

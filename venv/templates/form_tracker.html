@@ -4,13 +4,19 @@
     <title>Tracker Formy Drużyny</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
     <style>
+      
         body { font-family: 'Inter', sans-serif; }
         .chart-wrapper { position: relative; height: 35vh; min-height: 250px; width: 100%; }
+
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
-    
 </head>
 <body class="bg-gray-50 text-gray-800">
 
@@ -26,7 +32,9 @@
         <div class="relative max-w-lg mx-auto mb-12">
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
                 </div>
                 <input type="text" id="searchInput" 
                        class="block w-full pl-10 pr-4 py-4 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition duration-150 ease-in-out sm:text-sm" 
@@ -38,7 +46,7 @@
 
         <div id="loading" class="hidden text-center py-12">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-            <p class="mt-2 text-gray-500 text-sm">Pobieranie danych z API...</p>
+            <p class="mt-2 text-gray-500 text-sm">Pobieranie danych...</p>
         </div>
 
         <div id="content" class="hidden animate-fade-in">
@@ -99,12 +107,13 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        // Zmienne globalne
         let searchTimeout = null;
         let leagueChartInstance = null;
         let europeChartInstance = null;
         
+        // Obsługa wyszukiwarki
         function handleSearch() {
             clearTimeout(searchTimeout);
             const query = document.getElementById("searchInput").value;
@@ -117,7 +126,7 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    const res = await fetch(`/search-teams?q=${query}`);
+                    const res = await fetch(`/search-teams?q=${encodeURIComponent(query)}`);
                     const teams = await res.json();
                     resultsDiv.innerHTML = '';
                     
@@ -127,7 +136,7 @@
                             const div = document.createElement('div');
                             div.className = 'flex items-center px-4 py-3 hover:bg-blue-50 cursor-pointer transition duration-150';
                             div.innerHTML = `
-                                <img src="${team.logo}" class="w-8 h-8 object-contain mr-4">
+                                <img src="${team.logo}" class="w-8 h-8 object-contain mr-4" alt="Logo">
                                 <div class="flex-1">
                                     <div class="text-sm font-medium text-gray-900">${team.name}</div>
                                     <div class="text-xs text-gray-500">${team.country}</div>
@@ -139,17 +148,17 @@
                     } else {
                         resultsDiv.classList.add('hidden');
                     }
-                } catch (e) { console.error(e); }
+                } catch (e) { console.error("Błąd wyszukiwania:", e); }
             }, 300);
         }
 
+        // Wybór drużyny i pobranie danych
         async function selectTeam(team) {
             document.getElementById("searchResults").classList.add('hidden');
             document.getElementById("searchInput").value = team.name;
             document.getElementById("loading").classList.remove('hidden');
             document.getElementById("content").classList.add('hidden');
 
-            // ZMIANA TUTAJ: Dodano przycisk (link) do profilu obok nazwy
             document.getElementById("teamName").innerHTML = `
                 ${team.name} 
                 <a href="/team/${team.id}" class="ml-4 text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-full text-gray-700 transition no-underline">
@@ -169,11 +178,12 @@
                 document.getElementById("content").classList.remove('hidden');
             } catch (e) {
                 console.error(e);
-                alert("Błąd pobierania danych.");
+                alert("Wystąpił błąd podczas pobierania danych.");
                 document.getElementById("loading").classList.add('hidden');
             }
         }
 
+        // Konfiguracja wykresu
         function createMixedChart(ctx, matches, showRankLine, suggestedMaxRank = 20) {
             const labels = matches.map(m => `${m.opponent} (${m.date.substring(0,5)})`);
             const points = matches.map(m => m.points);
@@ -203,7 +213,7 @@
             if (showRankLine) {
                 datasets.push({
                     type: 'line',
-                    label: 'Miejsce',
+                    label: 'Miejsce w tabeli',
                     data: ranks,
                     borderColor: '#3b82f6', 
                     borderWidth: 2,
@@ -234,29 +244,23 @@
             });
         }
 
+        // Renderowanie wykresów
         function renderCharts(data) {
             const maxRank = 20; 
             const chartsGrid = document.getElementById('chartsGrid');
             const leagueBox = document.getElementById('leagueBox');
             const europeBox = document.getElementById('europeBox');
 
-            // 1. Reset (wyczyść poprzednie instancje)
             if (leagueChartInstance) leagueChartInstance.destroy();
             if (europeChartInstance) europeChartInstance.destroy();
 
-            // 2. Sprawdź czy są dane Europejskie
             const hasEurope = data.europe_chart && data.europe_chart.length > 0;
 
-            // 3. Logika zmiany układu (Grid vs Centered)
             if (hasEurope) {
-                // SĄ PUCHARY: Układ 2 kolumnowy
                 chartsGrid.className = "grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10";
                 europeBox.classList.remove('hidden');
-                
-                // Box ligowy normalny
                 leagueBox.className = "bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col transition-all duration-500";
                 
-                // Renderuj oba
                 const leagueCtx = document.getElementById('leagueChart').getContext('2d');
                 leagueChartInstance = createMixedChart(leagueCtx, data.league_chart, true, maxRank);
                 
@@ -264,14 +268,10 @@
                 europeChartInstance = createMixedChart(europeCtx, data.europe_chart, false);
 
             } else {
-                // BRAK PUCHARÓW: Układ wyśrodkowany
                 chartsGrid.className = "flex justify-center mb-10";
                 europeBox.classList.add('hidden');
-
-                // Box ligowy szerszy i na środku
                 leagueBox.className = "bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col w-full max-w-4xl transition-all duration-500";
 
-                // Renderuj tylko ligę
                 if (data.league_chart && data.league_chart.length > 0) {
                     const leagueCtx = document.getElementById('leagueChart').getContext('2d');
                     leagueChartInstance = createMixedChart(leagueCtx, data.league_chart, true, maxRank);
@@ -279,13 +279,14 @@
             }
         }
 
+        // Renderowanie tabeli wyników
         function renderTable(data) {
             const tbody = document.getElementById("historyTableBody");
             tbody.innerHTML = "";
             
             data.table_matches.forEach(m => {
                 const tr = document.createElement("tr");
-                tr.className = "hover:bg-gray-50 transition duration-150 cursor-pointer"; // Dodaj cursor-pointer
+                tr.className = "hover:bg-gray-50 transition duration-150 cursor-pointer";
                 tr.onclick = () => window.location.href = `/match/${m.id}`
 
                 let badgeClass = m.points === 3 ? "bg-green-100 text-green-800" : (m.points === 1 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800");
@@ -296,7 +297,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 truncate max-w-[150px]" title="${m.league_name}">${m.league_name}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
-                            <img src="${m.logo}" class="w-6 h-6 mr-3 object-contain">
+                            <img src="${m.logo}" class="w-6 h-6 mr-3 object-contain" alt="">
                             <span class="text-sm font-medium text-gray-900">${m.opponent}</span>
                         </div>
                     </td>
